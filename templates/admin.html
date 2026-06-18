@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Exam Invigilator — Admin Dashboard</title>
+    <meta name="description" content="Real-time monitoring and configuration dashboard for the AI Exam Invigilator system.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ─── Design Tokens ─── */
+        :root {
+            --bg-primary: #0b0b1e;
+            --bg-secondary: #10102a;
+            --bg-surface: rgba(18, 18, 42, 0.85);
+            --bg-glass: rgba(255, 255, 255, 0.04);
+            --bg-glass-hover: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.07);
+            --border-hover: rgba(255, 255, 255, 0.15);
+
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888aa;
+            --text-muted: #555570;
+
+            --accent: #00d4ff;
+            --accent-dim: rgba(0, 212, 255, 0.15);
+            --phone-color: #ff4757;
+            --phone-dim: rgba(255, 71, 87, 0.15);
+            --head-color: #ffa502;
+            --head-dim: rgba(255, 165, 2, 0.15);
+            --gaze-color: #a55eea;
+            --gaze-dim: rgba(165, 94, 234, 0.15);
+            --success: #2ed573;
+            --danger: #ff4757;
+
+            --radius: 12px;
+            --radius-sm: 8px;
+            --sidebar-width: 310px;
+            --topbar-height: 64px;
+
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ─── Reset & Base ─── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ─── Background Gradient ─── */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(165, 94, 234, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ─── Top Bar ─── */
+        .topbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--topbar-height);
+            background: var(--bg-surface);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .topbar-title h1 {
+            font-size: 16px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent), #a55eea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .topbar-title .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.85); }
+        }
+
+        .topbar-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.3s;
+        }
+
+        .stat-chip .value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-chip.live .value { color: var(--success); }
+        .stat-chip.warning .value { color: var(--danger); }
+
+        /* ─── Layout ─── */
+        .layout {
+            display: flex;
+            padding-top: var(--topbar-height);
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ─── Sidebar ─── */
+        .sidebar {
+            position: fixed;
+            top: var(--topbar-height);
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--bg-surface);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 20px 16px;
+            z-index: 50;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .sidebar-section {
+            margin-bottom: 20px;
+        }
+
+        .sidebar-section-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-section-header:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--border-hover);
+        }
+
+        .sidebar-section-header .icon { font-size: 16px; }
+
+        .sidebar-section-header h3 {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex: 1;
+        }
+
+        .sidebar-section-header .chevron {
+            font-size: 10px;
+            transition: transform 0.2s;
+            color: var(--text-muted);
+        }
+
+        .sidebar-section.collapsed .chevron { transform: rotate(-90deg); }
+        .sidebar-section.collapsed .sidebar-section-body { display: none; }
+
+        .sidebar-section-body {
+            padding: 4px 0;
+        }
+
+        .setting-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            transition: background 0.2s;
+        }
+
+        .setting-row:hover { background: var(--bg-glass); }
+
+        .setting-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .setting-control input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .setting-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(0, 212, 255, 0.4);
+            transition: transform 0.15s;
+        }
+
+        .setting-control input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .setting-control input[type="number"] {
+            width: 64px;
+            padding: 4px 6px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .setting-control input[type="number"]:focus {
+            border-color: var(--accent);
+        }
+
+        /* Remove spinner arrows */
+        .setting-control input[type="number"]::-webkit-inner-spin-button,
+        .setting-control input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+        }
+
+        .sidebar-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 8px;
+        }
+
+        /* ─── Buttons ─── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-glass);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:active { transform: translateY(0); }
+
+        .btn-accent {
+            background: var(--accent-dim);
+            border-color: rgba(0, 212, 255, 0.3);
+            color: var(--accent);
+        }
+
+        .btn-accent:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: var(--accent);
+        }
+
+        .btn-danger {
+            background: var(--phone-dim);
+            border-color: rgba(255, 71, 87, 0.3);
+            color: var(--phone-color);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 71, 87, 0.2);
+            border-color: var(--phone-color);
+        }
+
+        /* ─── Main Content ─── */
+        .main {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 24px;
+        }
+
+        .main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .main-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .main-header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        /* ─── Filter Pills ─── */
+        .filters {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--bg-glass);
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-pill:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .filter-pill.active {
+            background: var(--accent-dim);
+            border-color: rgba(0, 212, 255, 0.4);
+            color: var(--accent);
+        }
+
+        .filter-pill.active[data-type="phone"] {
+            background: var(--phone-dim);
+            border-color: rgba(255, 71, 87, 0.4);
+            color: var(--phone-color);
+        }
+
+        .filter-pill.active[data-type="head_pose"] {
+            background: var(--head-dim);
+            border-color: rgba(255, 165, 2, 0.4);
+            color: var(--head-color);
+        }
+
+        .filter-pill.active[data-type="eye_tracking"] {
+            background: var(--gaze-dim);
+            border-color: rgba(165, 94, 234, 0.4);
+            color: var(--gaze-color);
+        }
+
+        /* ─── Count Badges ─── */
+        .count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .filter-pill .count-badge {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+        }
+
+        .filter-pill.active .count-badge {
+            background: rgba(255, 255, 255, 0.15);
+            color: inherit;
+        }
+
+        /* ─── Violation Grid ─── */
+        .violation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .violation-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: all 0.3s;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .violation-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .violation-card-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: var(--bg-secondary);
+            display: block;
+        }
+
+        .violation-card-video {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background: var(--bg-secondary);
+            display: block;
+            cursor: pointer;
+        }
+
+        .violation-card-video:hover {
+            filter: brightness(1.1);
+        }
+
+        .violation-media-wrapper {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            background: var(--bg-secondary);
+            overflow: hidden;
+        }
+
+        .violation-media-wrapper .video-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 2px 8px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #fff;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+            z-index: 2;
+        }
+
+        .violation-card-image.placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: var(--text-muted);
+        }
+
+        .violation-card-body {
+            padding: 14px 16px;
+        }
+
+        .violation-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .violation-badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .violation-badge.phone {
+            background: var(--phone-dim);
+            color: var(--phone-color);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+
+        .violation-badge.head_pose {
+            background: var(--head-dim);
+            color: var(--head-color);
+            border: 1px solid rgba(255, 165, 2, 0.3);
+        }
+
+        .violation-badge.eye_tracking {
+            background: var(--gaze-dim);
+            color: var(--gaze-color);
+            border: 1px solid rgba(165, 94, 234, 0.3);
+        }
+
+        .violation-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .violation-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .violation-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .violation-detail .detail-key {
+            color: var(--text-secondary);
+        }
+
+        .violation-detail .detail-value {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ─── Empty State ─── */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            text-align: center;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.4;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* ─── Toast Notification ─── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 20px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            backdrop-filter: blur(20px);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(80px);
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 200;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { border-color: rgba(46, 213, 115, 0.4); color: var(--success); }
+        .toast.error { border-color: rgba(255, 71, 87, 0.4); color: var(--danger); }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ─── Top Bar ─── -->
+<header class="topbar">
+    <div class="topbar-title">
+        <div class="dot" id="statusDot"></div>
+        <h1>AI Exam Invigilator — Admin Dashboard</h1>
+    </div>
+    <div class="topbar-stats">
+        <div class="stat-chip live">
+            <span>FPS</span>
+            <span class="value" id="statFps">—</span>
+        </div>
+        <div class="stat-chip">
+            <span>Faces</span>
+            <span class="value" id="statFaces">0</span>
+        </div>
+        <div class="stat-chip" id="statViolationsChip">
+            <span>Active</span>
+            <span class="value" id="statActive">0</span>
+        </div>
+        <div class="stat-chip">
+            <span>Uptime</span>
+            <span class="value" id="statUptime">0:00</span>
+        </div>
+    </div>
+</header>
+
+<!-- ─── Layout ─── -->
+<div class="layout">
+
+    <!-- ─── Sidebar: Settings ─── -->
+    <aside class="sidebar">
+
+        <!-- Phone Detection -->
+        <div class="sidebar-section" id="sectionPhone">
+            <div class="sidebar-section-header" onclick="toggleSection('sectionPhone')">
+                <span class="icon">📱</span>
+                <h3>Phone Detection</h3>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="sidebar-section-body">
+                <div class="setting-row">
+                    <label class="setting-label">Violation Duration (seconds)</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.5" max="15" step="0.5"
+                               data-key="phone_violation_seconds"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.5" max="15" step="0.5"
+                               data-key="phone_violation_seconds"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Confidence Threshold</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.1" max="0.95" step="0.05"
+                               data-key="phone_confidence_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.1" max="0.95" step="0.05"
+                               data-key="phone_confidence_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Head Pose Detection -->
+        <div class="sidebar-section" id="sectionHead">
+            <div class="sidebar-section-header" onclick="toggleSection('sectionHead')">
+                <span class="icon">🗣️</span>
+                <h3>Head Pose Detection</h3>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="sidebar-section-body">
+                <div class="setting-row">
+                    <label class="setting-label">Violation Duration (seconds)</label>
+                    <div class="setting-control">
+                        <input type="range" min="1" max="30" step="0.5"
+                               data-key="head_violation_seconds"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="1" max="30" step="0.5"
+                               data-key="head_violation_seconds"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Yaw Threshold (degrees)</label>
+                    <div class="setting-control">
+                        <input type="range" min="10" max="60" step="1"
+                               data-key="yaw_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="10" max="60" step="1"
+                               data-key="yaw_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Pitch Down Threshold (degrees)</label>
+                    <div class="setting-control">
+                        <input type="range" min="10" max="60" step="1"
+                               data-key="pitch_down_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="10" max="60" step="1"
+                               data-key="pitch_down_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Pitch Up Threshold (degrees)</label>
+                    <div class="setting-control">
+                        <input type="range" min="10" max="80" step="1"
+                               data-key="pitch_up_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="10" max="80" step="1"
+                               data-key="pitch_up_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Eye Tracking -->
+        <div class="sidebar-section" id="sectionGaze">
+            <div class="sidebar-section-header" onclick="toggleSection('sectionGaze')">
+                <span class="icon">👁️</span>
+                <h3>Eye Tracking</h3>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="sidebar-section-body">
+                <div class="setting-row">
+                    <label class="setting-label">Violation Duration (seconds)</label>
+                    <div class="setting-control">
+                        <input type="range" min="1" max="30" step="0.5"
+                               data-key="gaze_violation_seconds"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="1" max="30" step="0.5"
+                               data-key="gaze_violation_seconds"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Gaze Left Threshold</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.1" max="0.5" step="0.01"
+                               data-key="gaze_left_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.1" max="0.5" step="0.01"
+                               data-key="gaze_left_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Gaze Right Threshold</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.5" max="0.95" step="0.01"
+                               data-key="gaze_right_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.5" max="0.95" step="0.01"
+                               data-key="gaze_right_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Gaze Up Threshold</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.1" max="0.5" step="0.01"
+                               data-key="gaze_up_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.1" max="0.5" step="0.01"
+                               data-key="gaze_up_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Gaze Down Threshold</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.5" max="0.95" step="0.01"
+                               data-key="gaze_down_threshold"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.5" max="0.95" step="0.01"
+                               data-key="gaze_down_threshold"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="sidebar-actions">
+            <button class="btn btn-accent" onclick="resetConfig()">
+                ↺ Reset to Defaults
+            </button>
+        </div>
+    </aside>
+
+    <!-- ─── Main Content ─── -->
+    <main class="main">
+        <div class="main-header">
+            <div>
+                <h2>Violation Log</h2>
+            </div>
+            <div class="main-header-actions">
+                <div class="filters">
+                    <button class="filter-pill active" data-type="all" onclick="setFilter('all', this)">
+                        All <span class="count-badge" id="countAll">0</span>
+                    </button>
+                    <button class="filter-pill" data-type="phone" onclick="setFilter('phone', this)">
+                        📱 Phone <span class="count-badge" id="countPhone">0</span>
+                    </button>
+                    <button class="filter-pill" data-type="head_pose" onclick="setFilter('head_pose', this)">
+                        🗣️ Head Pose <span class="count-badge" id="countHead">0</span>
+                    </button>
+                    <button class="filter-pill" data-type="eye_tracking" onclick="setFilter('eye_tracking', this)">
+                        👁️ Eye Tracking <span class="count-badge" id="countGaze">0</span>
+                    </button>
+                </div>
+                <button class="btn btn-danger" onclick="clearViolations()">
+                    🗑️ Clear All
+                </button>
+            </div>
+        </div>
+
+        <div id="violationGrid" class="violation-grid">
+            <div class="empty-state">
+                <div class="icon">🛡️</div>
+                <h3>No violations recorded</h3>
+                <p>Violations will appear here as they are detected.</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // ─── State ───
+    let currentFilter = 'all';
+    let configValues = {};
+    let debounceTimer = null;
+
+    // ─── Settings Sync ───
+    function syncSetting(el) {
+        const key = el.dataset.key;
+        const value = parseFloat(el.value);
+        configValues[key] = value;
+
+        // Sync the paired input (range ↔ number)
+        const row = el.closest('.setting-control');
+        const inputs = row.querySelectorAll(`[data-key="${key}"]`);
+        inputs.forEach(inp => { if (inp !== el) inp.value = value; });
+
+        // Debounce the API call
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => pushConfig(), 300);
+    }
+
+    function pushConfig() {
+        fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(configValues),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') showToast('Settings updated', 'success');
+        })
+        .catch(() => showToast('Failed to update settings', 'error'));
+    }
+
+    function loadConfig() {
+        fetch('/api/config')
+            .then(r => r.json())
+            .then(config => {
+                configValues = config;
+                Object.entries(config).forEach(([key, value]) => {
+                    const inputs = document.querySelectorAll(`[data-key="${key}"]`);
+                    inputs.forEach(inp => inp.value = value);
+                });
+            });
+    }
+
+    function resetConfig() {
+        fetch('/api/config/reset', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    configValues = data.config;
+                    Object.entries(data.config).forEach(([key, value]) => {
+                        const inputs = document.querySelectorAll(`[data-key="${key}"]`);
+                        inputs.forEach(inp => inp.value = value);
+                    });
+                    showToast('Settings reset to defaults', 'success');
+                }
+            })
+            .catch(() => showToast('Failed to reset settings', 'error'));
+    }
+
+    // ─── Violations ───
+    function setFilter(type, el) {
+        currentFilter = type;
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        loadViolations();
+    }
+
+    function loadViolations() {
+        const url = currentFilter === 'all'
+            ? '/api/violations'
+            : `/api/violations?type=${currentFilter}`;
+
+        fetch(url)
+            .then(r => r.json())
+            .then(violations => renderViolations(violations));
+    }
+
+    function renderViolations(violations) {
+        const grid = document.getElementById('violationGrid');
+
+        if (violations.length === 0) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">🛡️</div>
+                    <h3>No violations recorded</h3>
+                    <p>Violations will appear here as they are detected.</p>
+                </div>`;
+            return;
+        }
+
+        grid.innerHTML = violations.map(v => {
+            const typeLabels = {
+                'phone': '📱 Phone',
+                'head_pose': '🗣️ Head Pose',
+                'eye_tracking': '👁️ Eye Tracking'
+            };
+
+            const time = new Date(v.timestamp * 1000).toLocaleTimeString();
+            const date = new Date(v.timestamp * 1000).toLocaleDateString();
+
+            let mediaHtml;
+            if (v.media_path) {
+                const ext = v.media_path.split('.').pop().toLowerCase();
+                if (ext === 'mp4' || ext === 'webm') {
+                    mediaHtml = `
+                        <div class="violation-media-wrapper">
+                            <video class="violation-card-video"
+                                   src="/api/violations/${v.id}/video"
+                                   autoplay loop muted playsinline controls
+                                   title="Click to play/pause, use controls for fullscreen">
+                            </video>
+                            <span class="video-badge">▶ VIDEO</span>
+                        </div>`;
+                } else {
+                    mediaHtml = `<img class="violation-card-image" src="/api/violations/${v.id}/image" alt="Violation crop" loading="lazy">`;
+                }
+            } else {
+                mediaHtml = `<div class="violation-card-image placeholder">📷</div>`;
+            }
+
+            let detailsHtml = '';
+            if (v.type === 'phone') {
+                detailsHtml = `
+                    <div class="violation-detail">
+                        <span class="detail-key">Object</span>
+                        <span class="detail-value">${v.class_name || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Confidence</span>
+                        <span class="detail-value">${v.confidence ? (v.confidence * 100).toFixed(0) + '%' : '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Severity</span>
+                        <span class="detail-value">${v.severity || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Track ID</span>
+                        <span class="detail-value">#${v.track_id || '—'}</span>
+                    </div>`;
+            } else if (v.type === 'head_pose') {
+                detailsHtml = `
+                    <div class="violation-detail">
+                        <span class="detail-key">Student</span>
+                        <span class="detail-value">${v.label || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Status</span>
+                        <span class="detail-value">${v.head_pose_status || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Yaw</span>
+                        <span class="detail-value">${v.yaw != null ? v.yaw.toFixed(1) + '°' : '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Pitch</span>
+                        <span class="detail-value">${v.pitch != null ? v.pitch.toFixed(1) + '°' : '—'}</span>
+                    </div>`;
+            } else {
+                detailsHtml = `
+                    <div class="violation-detail">
+                        <span class="detail-key">Student</span>
+                        <span class="detail-value">${v.label || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Gaze</span>
+                        <span class="detail-value">${v.gaze_direction || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">H Ratio</span>
+                        <span class="detail-value">${v.gaze_h_ratio != null ? v.gaze_h_ratio.toFixed(3) : '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">V Ratio</span>
+                        <span class="detail-value">${v.gaze_v_ratio != null ? v.gaze_v_ratio.toFixed(3) : '—'}</span>
+                    </div>`;
+            }
+
+            return `
+                <div class="violation-card">
+                    ${mediaHtml}
+                    <div class="violation-card-body">
+                        <div class="violation-card-top">
+                            <span class="violation-badge ${v.type}">${typeLabels[v.type] || v.type}</span>
+                            <span class="violation-time">${time}<br>${date}</span>
+                        </div>
+                        <div class="violation-details">
+                            <div class="violation-detail">
+                                <span class="detail-key">Duration</span>
+                                <span class="detail-value">${v.duration.toFixed(1)}s</span>
+                            </div>
+                            ${detailsHtml}
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function clearViolations() {
+        if (!confirm('Clear all violations? This cannot be undone.')) return;
+        fetch('/api/clear', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    showToast('All violations cleared', 'success');
+                    loadViolations();
+                    loadStats();
+                }
+            })
+            .catch(() => showToast('Failed to clear violations', 'error'));
+    }
+
+    // ─── Stats ───
+    function loadStats() {
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(stats => {
+                document.getElementById('statFps').textContent = stats.fps.toFixed(1);
+                document.getElementById('statFaces').textContent = stats.faces;
+                document.getElementById('statActive').textContent = stats.active_violations;
+
+                // Format uptime
+                const secs = Math.floor(stats.uptime);
+                const m = Math.floor(secs / 60);
+                const s = secs % 60;
+                const h = Math.floor(m / 60);
+                const mm = m % 60;
+                document.getElementById('statUptime').textContent =
+                    h > 0 ? `${h}:${String(mm).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                           : `${mm}:${String(s).padStart(2, '0')}`;
+
+                // Active violations chip color
+                const chip = document.getElementById('statViolationsChip');
+                chip.classList.toggle('warning', stats.active_violations > 0);
+
+                // Update counts
+                const counts = stats.violations || {};
+                document.getElementById('countAll').textContent = counts.total || 0;
+                document.getElementById('countPhone').textContent = counts.phone || 0;
+                document.getElementById('countHead').textContent = counts.head_pose || 0;
+                document.getElementById('countGaze').textContent = counts.eye_tracking || 0;
+            })
+            .catch(() => {
+                document.getElementById('statusDot').style.background = '#ff4757';
+            });
+    }
+
+    // ─── Section Toggle ───
+    function toggleSection(id) {
+        document.getElementById(id).classList.toggle('collapsed');
+    }
+
+    // ─── Toast ───
+    function showToast(message, type = '') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = `toast show ${type}`;
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // ── Video click-to-toggle & error retry ──
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('violation-card-video')) {
+            if (e.target.paused) e.target.play();
+            else e.target.pause();
+        }
+    });
+
+    // Retry loading videos that fail (still encoding in background)
+    document.addEventListener('error', e => {
+        if (e.target.classList.contains('violation-card-video')) {
+            const video = e.target;
+            const retries = parseInt(video.dataset.retries || '0');
+            if (retries < 5) {
+                video.dataset.retries = retries + 1;
+                const badge = video.parentElement?.querySelector('.video-badge');
+                if (badge) badge.textContent = '⏳ ENCODING...';
+                // Retry after 3 seconds with cache-busting param
+                setTimeout(() => {
+                    const base = video.src.split('?')[0];
+                    video.src = base + '?t=' + Date.now();
+                    video.load();
+                }, 3000);
+            } else {
+                const badge = video.parentElement?.querySelector('.video-badge');
+                if (badge) badge.textContent = '⚠ UNAVAILABLE';
+            }
+        }
+    }, true);
+
+    // ─── Init & Polling ───
+    loadConfig();
+    loadStats();
+    loadViolations();
+
+    setInterval(loadStats, 1000);
+    setInterval(loadViolations, 2000);
+</script>
+</body>
+</html>

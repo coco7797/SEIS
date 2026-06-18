@@ -1,0 +1,28 @@
+# requirements.txt
+# ─────────────────────────────────────────────
+# AI Exam Invigilator — Phone & Attention Detection
+#
+# Install with:
+#   python -m pip install -r requirements.txt
+#
+# IMPORTANT: Use  python -m pip  (not just  pip )
+# to make sure you install into the correct Python.
+# ─────────────────────────────────────────────
+
+# Ultralytics YOLO11 — object detection + ByteTrack tracking
+# This one package installs YOLO11, ByteTrack, PyTorch, and all dependencies
+ultralytics>=8.3.0
+
+# OpenCV — camera capture, image drawing, frame display
+opencv-python>=4.9.0
+
+# NumPy — array math (usually installed by ultralytics, listed for clarity)
+numpy>=1.24.0
+
+# MediaPipe — face mesh for head pose & gaze estimation
+# Provides 468 facial landmarks + 10 iris landmarks per face
+mediapipe>=0.10.0
+
+# Flask — admin dashboard web server
+# Serves the invigilator control panel at http://localhost:5000
+flask>=3.0.0
