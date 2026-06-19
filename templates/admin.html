@@ -11,36 +11,55 @@
     <style>
         /* ─── Design Tokens ─── */
         :root {
-            --bg-primary: #0b0b1e;
-            --bg-secondary: #10102a;
-            --bg-surface: rgba(18, 18, 42, 0.85);
-            --bg-glass: rgba(255, 255, 255, 0.04);
-            --bg-glass-hover: rgba(255, 255, 255, 0.08);
-            --border: rgba(255, 255, 255, 0.07);
-            --border-hover: rgba(255, 255, 255, 0.15);
+            /* Core Backgrounds */
+            --background: #09090b;       /* Zinc 950 */
+            --card: #18181b;             /* Zinc 900 */
+            --muted: #27272a;            /* Zinc 800 */
+            --border: #3f3f46;           /* Zinc 700 */
+            --input: #3f3f46;
+            
+            /* Text Colors */
+            --foreground: #fafafa;       /* Zinc 50 */
+            --muted-foreground: #a1a1aa; /* Zinc 400 */
+            --secondary-foreground: #e4e4e7; /* Zinc 200 */
+            
+            /* Accents */
+            --primary: #f59e0b;          /* Amber 500 */
+            --primary-foreground: #111827;
+            --ring: #f59e0b;
+            
+            /* Mappings for legacy styles */
+            --bg-primary: var(--background);
+            --bg-secondary: #000000;
+            --bg-surface: var(--card);
+            --bg-glass: var(--muted);
+            --bg-glass-hover: #3f3f46;
+            --border-hover: var(--ring);
 
-            --text-primary: #e8e8f0;
-            --text-secondary: #8888aa;
-            --text-muted: #555570;
+            --text-primary: var(--foreground);
+            --text-secondary: var(--secondary-foreground);
+            --text-muted: var(--muted-foreground);
 
-            --accent: #00d4ff;
-            --accent-dim: rgba(0, 212, 255, 0.15);
-            --phone-color: #ff4757;
-            --phone-dim: rgba(255, 71, 87, 0.15);
-            --head-color: #ffa502;
-            --head-dim: rgba(255, 165, 2, 0.15);
-            --gaze-color: #a55eea;
-            --gaze-dim: rgba(165, 94, 234, 0.15);
-            --success: #2ed573;
-            --danger: #ff4757;
+            --accent: var(--primary);
+            --accent-dim: rgba(245, 158, 11, 0.15);
+
+            --phone-color: #ef4444;
+            --phone-dim: rgba(239, 68, 68, 0.15);
+            --head-color: #3b82f6;
+            --head-dim: rgba(59, 130, 246, 0.15);
+            --gaze-color: #8b5cf6;
+            --gaze-dim: rgba(139, 92, 246, 0.15);
+            
+            --success: #10b981;
+            --danger: #ef4444;
 
             --radius: 12px;
             --radius-sm: 8px;
-            --sidebar-width: 310px;
+            --sidebar-width: 320px;
             --topbar-height: 64px;
 
-            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.7), 0 4px 6px -4px rgb(0 0 0 / 0.7);
         }
 
         /* ─── Reset & Base ─── */
@@ -52,18 +71,6 @@
             color: var(--text-primary);
             min-height: 100vh;
             overflow-x: hidden;
-        }
-
-        /* ─── Background Gradient ─── */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background:
-                radial-gradient(ellipse at 20% 0%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 100%, rgba(165, 94, 234, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: 0;
         }
 
         /* ─── Top Bar ─── */
@@ -90,10 +97,7 @@
         .topbar-title h1 {
             font-size: 16px;
             font-weight: 600;
-            background: linear-gradient(135deg, var(--accent), #a55eea);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: var(--foreground);
         }
 
         .topbar-title .dot {
@@ -688,7 +692,7 @@
         <!-- Phone Detection -->
         <div class="sidebar-section" id="sectionPhone">
             <div class="sidebar-section-header" onclick="toggleSection('sectionPhone')">
-                <span class="icon">📱</span>
+                
                 <h3>Phone Detection</h3>
                 <span class="chevron">▼</span>
             </div>
@@ -721,7 +725,7 @@
         <!-- Head Pose Detection -->
         <div class="sidebar-section" id="sectionHead">
             <div class="sidebar-section-header" onclick="toggleSection('sectionHead')">
-                <span class="icon">🗣️</span>
+                
                 <h3>Head Pose Detection</h3>
                 <span class="chevron">▼</span>
             </div>
@@ -776,7 +780,7 @@
         <!-- Eye Tracking -->
         <div class="sidebar-section" id="sectionGaze">
             <div class="sidebar-section-header" onclick="toggleSection('sectionGaze')">
-                <span class="icon">👁️</span>
+                
                 <h3>Eye Tracking</h3>
                 <span class="chevron">▼</span>
             </div>
@@ -842,7 +846,7 @@
         <!-- Actions -->
         <div class="sidebar-actions">
             <button class="btn btn-accent" onclick="resetConfig()">
-                ↺ Reset to Defaults
+                 Reset to Defaults
             </button>
         </div>
     </aside>
@@ -859,24 +863,24 @@
                         All <span class="count-badge" id="countAll">0</span>
                     </button>
                     <button class="filter-pill" data-type="phone" onclick="setFilter('phone', this)">
-                        📱 Phone <span class="count-badge" id="countPhone">0</span>
+                         Phone <span class="count-badge" id="countPhone">0</span>
                     </button>
                     <button class="filter-pill" data-type="head_pose" onclick="setFilter('head_pose', this)">
-                        🗣️ Head Pose <span class="count-badge" id="countHead">0</span>
+                         Head Pose <span class="count-badge" id="countHead">0</span>
                     </button>
                     <button class="filter-pill" data-type="eye_tracking" onclick="setFilter('eye_tracking', this)">
-                        👁️ Eye Tracking <span class="count-badge" id="countGaze">0</span>
+                         Eye Tracking <span class="count-badge" id="countGaze">0</span>
                     </button>
                 </div>
                 <button class="btn btn-danger" onclick="clearViolations()">
-                    🗑️ Clear All
+                     Clear All
                 </button>
             </div>
         </div>
 
         <div id="violationGrid" class="violation-grid">
             <div class="empty-state">
-                <div class="icon">🛡️</div>
+                <div class="icon"></div>
                 <h3>No violations recorded</h3>
                 <p>Violations will appear here as they are detected.</p>
             </div>
@@ -974,7 +978,7 @@
         if (violations.length === 0) {
             grid.innerHTML = `
                 <div class="empty-state">
-                    <div class="icon">🛡️</div>
+                    <div class="icon"></div>
                     <h3>No violations recorded</h3>
                     <p>Violations will appear here as they are detected.</p>
                 </div>`;
@@ -983,9 +987,9 @@
 
         grid.innerHTML = violations.map(v => {
             const typeLabels = {
-                'phone': '📱 Phone',
-                'head_pose': '🗣️ Head Pose',
-                'eye_tracking': '👁️ Eye Tracking'
+                'phone': ' Phone',
+                'head_pose': ' Head Pose',
+                'eye_tracking': ' Eye Tracking'
             };
 
             const time = new Date(v.timestamp * 1000).toLocaleTimeString();
@@ -1002,13 +1006,13 @@
                                    autoplay loop muted playsinline controls
                                    title="Click to play/pause, use controls for fullscreen">
                             </video>
-                            <span class="video-badge">▶ VIDEO</span>
+                            <span class="video-badge"> VIDEO</span>
                         </div>`;
                 } else {
                     mediaHtml = `<img class="violation-card-image" src="/api/violations/${v.id}/image" alt="Violation crop" loading="lazy">`;
                 }
             } else {
-                mediaHtml = `<div class="violation-card-image placeholder">📷</div>`;
+                mediaHtml = `<div class="violation-card-image placeholder"></div>`;
             }
 
             let detailsHtml = '';
@@ -1166,7 +1170,7 @@
             if (retries < 5) {
                 video.dataset.retries = retries + 1;
                 const badge = video.parentElement?.querySelector('.video-badge');
-                if (badge) badge.textContent = '⏳ ENCODING...';
+                if (badge) badge.textContent = ' ENCODING...';
                 // Retry after 3 seconds with cache-busting param
                 setTimeout(() => {
                     const base = video.src.split('?')[0];
@@ -1175,7 +1179,7 @@
                 }, 3000);
             } else {
                 const badge = video.parentElement?.querySelector('.video-badge');
-                if (badge) badge.textContent = '⚠ UNAVAILABLE';
+                if (badge) badge.textContent = ' UNAVAILABLE';
             }
         }
     }, true);
