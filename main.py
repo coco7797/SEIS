@@ -299,6 +299,7 @@ def main():
 
     os.makedirs("screenshots", exist_ok=True)
     os.makedirs("violation_clips", exist_ok=True)
+    os.makedirs("violation_crops", exist_ok=True)
 
     # ── Video recorder for violation clips ──
     frame_buffer = FrameBuffer(max_seconds=3.0, fps_estimate=30.0)
@@ -358,14 +359,12 @@ def main():
                 f"{'='*55}"
             )
 
-            # Record a short video clip of the violation
-            video_path, post_recorder = video_writer.record_violation(
-                violation_type="phone",
-                label=f"{ev.class_name.replace(' ','_')}_track{ev.track_id}",
-                timestamp=ev.timestamp,
-            )
-            print(f"  Recording clip: {video_path}")
-            violation_store.add_phone_violation(ev, media_path=video_path)
+            # Save a screenshot of the violation
+            label = f"{ev.class_name.replace(' ','_')}_track{ev.track_id}"
+            image_path = f"violation_crops/phone_{label}_{int(ev.timestamp)}.jpg"
+            cv2.imwrite(image_path, frame)
+            print(f"  Recording image: {image_path}")
+            violation_store.add_phone_violation(ev, media_path=image_path)
 
         # ── Handle new head pose violation events ──
         for ev in head_events:
