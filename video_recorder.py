@@ -37,7 +37,7 @@ from pathlib import Path
 # ─────────────────────────────────────────────────────────
 
 # How many seconds of footage to keep before the violation fires.
-PRE_VIOLATION_SECONDS = 3.0
+PRE_VIOLATION_SECONDS = 4.0
 
 # How many seconds to continue recording after the violation fires.
 POST_VIOLATION_SECONDS = 2.0
