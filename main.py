@@ -331,14 +331,50 @@ def main():
             break
 
         # ── Run YOLO phone detection ──
-        detections, new_events = detector.process(frame)
+        if shared_config.get("phone_detection_enabled"):
+            detections, new_events = detector.process(frame)
+        else:
+            detections, new_events = [], []
+            detector.tracker.update([])
 
         # ── Run head pose & gaze estimation ──
         face_attentions = []
         head_events = []
         gaze_events = []
         if head_detector is not None:
-            face_attentions, head_events, gaze_events = head_detector.process(frame)
+            head_en = shared_config.get("head_pose_enabled")
+            gaze_en = shared_config.get("eye_tracking_enabled")
+            
+            if head_en or gaze_en:
+                face_attentions, head_events, gaze_events = head_detector.process(frame)
+                
+                if not head_en:
+                    head_events = []
+                    head_detector.head_tracker.update([])
+                if not gaze_en:
+                    gaze_events = []
+                    head_detector.gaze_tracker.update([])
+                    
+                for fa in face_attentions:
+                    if not head_en:
+                        fa.is_head_violation = False
+                        fa.head_pose_status = "FORWARD"
+                    if not gaze_en:
+                        fa.is_gaze_violation = False
+                        fa.gaze_direction = "CENTER"
+                        
+                    # Recompute combined attention status
+                    if fa.head_pose_status != "FORWARD":
+                        fa.attention_status = fa.head_pose_status
+                    elif fa.gaze_direction != "CENTER":
+                        fa.attention_status = "LOOKING " + fa.gaze_direction
+                    else:
+                        fa.attention_status = "ATTENTIVE"
+                        
+                    fa.is_violation = fa.is_head_violation or fa.is_gaze_violation
+            else:
+                head_detector.head_tracker.update([])
+                head_detector.gaze_tracker.update([])
 
         # ── Handle new phone violation events ──
         for ev in new_events:

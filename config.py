@@ -26,6 +26,11 @@ from pathlib import Path
 # ─────────────────────────────────────────────────────────
 
 DEFAULTS = {
+    # Feature toggles
+    "phone_detection_enabled": True,
+    "head_pose_enabled": True,
+    "eye_tracking_enabled": True,
+
     # Phone detection
     "phone_violation_seconds": 2.0,
     "phone_confidence_threshold": 0.50,

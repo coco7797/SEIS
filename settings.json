@@ -1,4 +1,7 @@
 {
+    "phone_detection_enabled": true,
+    "head_pose_enabled": true,
+    "eye_tracking_enabled": false,
     "phone_violation_seconds": 0.5,
     "phone_confidence_threshold": 0.5,
     "head_violation_seconds": 5.0,
