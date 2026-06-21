@@ -2,7 +2,7 @@
 main.py
 =======
 Entry point for the AI Exam Invigilator system.
-Runs Phone Detection (YOLO) and Head Pose / Gaze Estimation (MediaPipe)
+Runs Phone Detection (RF-DETR) and Head Pose / Gaze Estimation (MediaPipe)
 on a live webcam, video file, or RTSP stream.
 
 Controls while running:
@@ -16,8 +16,6 @@ Usage:
   python main.py --source 1                       # second webcam
   python main.py --source video.mp4              # video file
   python main.py --source rtsp://192.168.1.5/cam  # IP camera RTSP stream
-  python main.py --model n                        # use faster nano model
-  python main.py --model l                        # use more accurate large model
   python main.py --no-headpose                    # disable head pose detection
 """
 
@@ -69,10 +67,6 @@ def parse_args():
     parser.add_argument(
         "--source", default=0,
         help="Camera index (0, 1...), video file path, or RTSP URL. Default: 0"
-    )
-    parser.add_argument(
-        "--model", default="m", choices=["n", "s", "m", "l", "x"],
-        help="YOLO11 model size. n=fastest, x=most accurate. Default: m"
     )
     parser.add_argument(
         "--width", type=int, default=1280,
@@ -269,7 +263,7 @@ def main():
     violation_store = ViolationStore()
 
     # ── Initialise detectors (with shared config for live threshold updates) ──
-    detector    = PhoneDetector(model_size=args.model, config=shared_config)
+    detector    = PhoneDetector(config=shared_config)
     fps_counter = FPSCounter()
 
     # Head pose detector (optional — disabled with --no-headpose)
@@ -302,8 +296,8 @@ def main():
     os.makedirs("violation_crops", exist_ok=True)
 
     # ── Video recorder for violation clips ──
-    frame_buffer = FrameBuffer(max_seconds=3.0, fps_estimate=30.0)
-    video_writer = ViolationVideoWriter(frame_buffer, clips_dir="violation_clips")
+    frame_buffer = FrameBuffer(max_seconds=5.0, fps_estimate=30.0, config=shared_config)
+    video_writer = ViolationVideoWriter(frame_buffer, clips_dir="violation_clips", config=shared_config)
 
     print("[INFO] Running. Press Q or ESC to quit.")
     print(f"[INFO] Watching for: Cell Phone, Laptop, Book")
@@ -330,7 +324,7 @@ def main():
             print("[INFO] Stream ended or frame read failed.")
             break
 
-        # ── Run YOLO phone detection ──
+        # ── Run RF-DETR phone detection ──
         if shared_config.get("phone_detection_enabled"):
             detections, new_events = detector.process(frame)
         else:

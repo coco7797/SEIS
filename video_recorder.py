@@ -124,13 +124,15 @@ class FrameBuffer:
     fires, snapshot() returns all buffered frames (the "pre" footage).
 
     Usage:
-        buf = FrameBuffer(max_seconds=3.0, fps_estimate=30)
+        buf = FrameBuffer(max_seconds=5.0, fps_estimate=30)
         buf.push(frame)                 # every frame
         pre_frames = buf.snapshot()     # when violation fires
     """
 
     def __init__(self, max_seconds: float = PRE_VIOLATION_SECONDS,
-                 fps_estimate: float = 30.0):
+                 fps_estimate: float = 30.0, config=None):
+        self._config = config
+        self._fps_estimate = fps_estimate
         # Estimate how many frames to buffer.
         # We over-estimate slightly to account for FPS fluctuations.
         max_frames = int(max_seconds * fps_estimate * 1.2)
@@ -144,7 +146,19 @@ class FrameBuffer:
 
         We store a .copy() so the buffer owns its own memory and
         the caller can safely overwrite the original frame.
+
+        Also dynamically resizes the buffer if the config's
+        video_pre_seconds has changed.
         """
+        # Dynamically resize buffer if config changed
+        if self._config:
+            desired_seconds = self._config.get("video_pre_seconds")
+            desired_maxlen = max(int(desired_seconds * self._fps_estimate * 1.2), 30)
+            if self._buffer.maxlen != desired_maxlen:
+                with self._lock:
+                    old_frames = list(self._buffer)
+                    self._buffer = deque(old_frames, maxlen=desired_maxlen)
+
         entry = BufferedFrame(
             frame=frame.copy(),
             timestamp=time.time(),
@@ -154,11 +168,20 @@ class FrameBuffer:
 
     def snapshot(self) -> list[BufferedFrame]:
         """
-        Return a copy of all currently buffered frames.
+        Return a copy of all currently buffered frames within the desired time window.
         Called when a violation fires to capture the "pre" footage.
         """
         with self._lock:
-            return list(self._buffer)
+            # Determine the exact time window we want to keep
+            desired_seconds = PRE_VIOLATION_SECONDS
+            if self._config:
+                desired_seconds = self._config.get("video_pre_seconds")
+                
+            cutoff_time = time.time() - desired_seconds
+            
+            # Only return frames that fall within the recent window
+            valid_frames = [f for f in self._buffer if f.timestamp >= cutoff_time]
+            return valid_frames
 
     def clear(self):
         """Clear the buffer (e.g. when pausing)."""
@@ -194,9 +217,10 @@ class ViolationVideoWriter:
     """
 
     def __init__(self, frame_buffer: FrameBuffer,
-                 clips_dir: str = CLIPS_DIR):
+                 clips_dir: str = CLIPS_DIR, config=None):
         self.frame_buffer = frame_buffer
         self.clips_dir = clips_dir
+        self._config = config
         os.makedirs(clips_dir, exist_ok=True)
 
         # Track active post-recorders to avoid duplicate recordings
@@ -235,11 +259,13 @@ class ViolationVideoWriter:
         # Snapshot pre-violation frames
         pre_frames = self.frame_buffer.snapshot()
 
-        # Create post-recorder
+        # Create post-recorder with live config value
+        post_seconds = (self._config.get("video_post_seconds")
+                        if self._config else POST_VIOLATION_SECONDS)
         post_recorder = PostRecorder(
             pre_frames=pre_frames,
             video_path=video_path,
-            post_seconds=POST_VIOLATION_SECONDS,
+            post_seconds=post_seconds,
         )
 
         with self._lock:
@@ -352,7 +378,8 @@ class PostRecorder:
             actual_fps = VIDEO_FPS
 
         # Cap FPS to a reasonable range for the output file
-        output_fps = min(max(actual_fps, 10.0), 30.0)
+        # We allow down to 1.0 FPS so slow processing doesn't result in fast-forward video
+        output_fps = min(max(actual_fps, 1.0), 30.0)
 
         # Find a working codec (probes once, then caches)
         codec_str, ext = _find_working_codec(w, h)

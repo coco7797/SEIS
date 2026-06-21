@@ -908,6 +908,39 @@
             </div>
         </div>
 
+        <!-- Video Recording -->
+        <div class="sidebar-section" id="sectionVideo">
+            <div class="sidebar-section-header" onclick="toggleSection('sectionVideo')">
+                
+                <h3>Video Recording</h3>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="sidebar-section-body">
+                <div class="setting-row">
+                    <label class="setting-label">Pre-Violation Buffer (seconds)</label>
+                    <div class="setting-control">
+                        <input type="range" min="1" max="15" step="0.5"
+                               data-key="video_pre_seconds"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="1" max="15" step="0.5"
+                               data-key="video_pre_seconds"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label class="setting-label">Post-Violation Recording (seconds)</label>
+                    <div class="setting-control">
+                        <input type="range" min="0.5" max="10" step="0.5"
+                               data-key="video_post_seconds"
+                               oninput="syncSetting(this)">
+                        <input type="number" min="0.5" max="10" step="0.5"
+                               data-key="video_post_seconds"
+                               onchange="syncSetting(this)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Actions -->
         <div class="sidebar-actions">
             <button class="btn btn-accent" onclick="resetConfig()">
@@ -1163,7 +1196,7 @@
                         </div>
                         <div class="violation-details">
                             <div class="violation-detail">
-                                <span class="detail-key">Duration</span>
+                                <span class="detail-key">Violation Duration</span>
                                 <span class="detail-value">${v.duration.toFixed(1)}s</span>
                             </div>
                             ${detailsHtml}

@@ -1,9 +1,9 @@
 {
     "phone_detection_enabled": true,
     "head_pose_enabled": true,
-    "eye_tracking_enabled": false,
+    "eye_tracking_enabled": true,
     "phone_violation_seconds": 0.5,
-    "phone_confidence_threshold": 0.5,
+    "phone_confidence_threshold": 0.75,
     "head_violation_seconds": 5.0,
     "yaw_threshold": 30.0,
     "pitch_down_threshold": 50.0,
@@ -12,5 +12,7 @@
     "gaze_left_threshold": 0.35,
     "gaze_right_threshold": 0.65,
     "gaze_up_threshold": 0.35,
-    "gaze_down_threshold": 0.75
+    "gaze_down_threshold": 0.75,
+    "video_pre_seconds": 4.0,
+    "video_post_seconds": 4.0
 }

@@ -9,9 +9,13 @@
 # to make sure you install into the correct Python.
 # ─────────────────────────────────────────────
 
-# Ultralytics YOLO11 — object detection + ByteTrack tracking
-# This one package installs YOLO11, ByteTrack, PyTorch, and all dependencies
-ultralytics>=8.3.0
+# RF-DETR — Real-time Detection Transformer (object detection)
+# Pre-trained on COCO, more accurate than YOLO for this use case
+rfdetr
+
+# Supervision — detection containers + ByteTrack tracking
+# Pairs with RF-DETR for tracking and annotation utilities
+supervision>=0.22.0
 
 # OpenCV — camera capture, image drawing, frame display
 opencv-python>=4.9.0

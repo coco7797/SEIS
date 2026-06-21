@@ -4,34 +4,34 @@ phone_detector.py
 Phone (and prohibited object) detection module for the AI Exam Invigilator System.
 
 How it works:
-  1. YOLO11 is a deep learning model pre-trained on the COCO dataset — a massive
-     collection of 330,000 real-world images covering 80 object classes.
-     "Cell phone" (class ID 67) is one of those 80 classes, so YOLO already
-     knows what phones look like WITHOUT any training from us.
+  1. RF-DETR (Real-time Detection Transformer) is a deep learning model
+     pre-trained on the COCO dataset — a massive collection of 330,000
+     real-world images covering 80 object classes.
+     "Cell phone" (COCO category ID 77) is one of those 80 classes, so
+     RF-DETR already knows what phones look like WITHOUT any training.
 
-  2. Every frame from the camera is passed through YOLO11. It scans the entire
-     image in one pass (that's what "You Only Look Once" means) and returns
-     bounding boxes around every object it finds, along with a confidence score
-     (0.0 to 1.0) saying how sure it is.
+  2. Every frame from the camera is passed through RF-DETR. It analyses the
+     entire image and returns bounding boxes around every object it finds,
+     along with a confidence score (0.0 to 1.0) saying how sure it is.
 
-  3. ByteTrack is a tracking algorithm that runs on top of YOLO's detections.
-     YOLO by itself re-detects everything from scratch each frame — it has no
-     memory. ByteTrack gives each detected object a persistent ID (track_id)
-     that stays consistent across frames. So if a student picks up a phone,
-     that phone gets ID #5 and keeps that ID until it disappears.
+  3. ByteTrack (via the supervision library) is a tracking algorithm that
+     runs on top of RF-DETR's detections. RF-DETR by itself re-detects
+     everything from scratch each frame — it has no memory. ByteTrack gives
+     each detected object a persistent ID (tracker_id) that stays consistent
+     across frames. So if a student picks up a phone, that phone gets ID #5
+     and keeps that ID until it disappears.
 
-  4. A ViolationTracker (same concept as in head_pose_detector.py) watches each
-     tracked phone. If a phone stays visible for more than N seconds, it fires
-     a ViolationEvent. This avoids false positives from momentary glints or
-     brief reflections being detected as phones.
+  4. A ViolationTracker watches each tracked phone. If a phone stays visible
+     for more than N seconds, it fires a ViolationEvent. This avoids false
+     positives from momentary glints or brief reflections being detected
+     as phones.
 
-COCO classes we detect (you can add/remove from WATCHED_CLASSES):
-  - 67: cell phone
-  - 73: book        (unauthorised notes)
-  - 63: laptop      (unauthorised device)
-  - 76: scissors    (potential weapon / stress detection — optional)
+COCO classes we detect (original COCO category IDs, NOT sequential):
+  - 77: cell phone
+  - 84: book        (unauthorised notes)
+  - 73: laptop      (unauthorised device)
 
-Dependencies: ultralytics, opencv-python, numpy
+Dependencies: rfdetr, supervision, opencv-python, numpy
 """
 
 import cv2
@@ -39,8 +39,10 @@ import time
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional
-from collections import defaultdict
-from ultralytics import YOLO
+
+import supervision as sv
+from rfdetr import RFDETRNano
+from rfdetr.assets.coco_classes import COCO_CLASSES
 
 
 # ─────────────────────────────────────────────────────────
@@ -48,33 +50,31 @@ from ultralytics import YOLO
 # ─────────────────────────────────────────────────────────
 
 # COCO dataset class IDs that we care about in an exam hall.
-# Full list: https://docs.ultralytics.com/datasets/detect/coco/
+# IMPORTANT: RF-DETR uses ORIGINAL COCO category IDs (1-90, with gaps),
+# NOT the sequential 0-79 indices that YOLO uses.
+# Full mapping: rfdetr.assets.coco_classes.COCO_CLASSES
 # Each entry is:  class_id : (display_name, severity)
 # severity: "HIGH" = alert invigilator immediately
 #           "MEDIUM" = log and flag for review
 WATCHED_CLASSES = {
-    67: ("Cell Phone",  "HIGH"),
-    73: ("Book",        "MEDIUM"),
-    63: ("Laptop",      "HIGH"),
+    77: ("Cell Phone",  "HIGH"),
+    84: ("Book",        "MEDIUM"),
+    73: ("Laptop",      "HIGH"),
 }
 
 # How many seconds a detected object must be CONTINUOUSLY visible
 # before we fire a violation. Prevents false positives.
 VIOLATION_DURATION_SECONDS = 2.0
 
-# Minimum YOLO confidence to consider a detection real.
+# Minimum confidence to consider a detection real.
 # 0.5 = must be at least 50% sure. Lower = more detections but more noise.
 CONFIDENCE_THRESHOLD = 0.50
-
-# IOU (Intersection Over Union) threshold for Non-Maximum Suppression.
-# This removes duplicate boxes for the same object.
-# Higher = stricter deduplication.
-IOU_THRESHOLD = 0.45
 
 # Colours for drawing — BGR format (Blue, Green, Red)
 COLOUR_HIGH   = (0,   50,  220)  # Red   — HIGH severity
 COLOUR_MEDIUM = (0,  165,  255)  # Orange — MEDIUM severity
 COLOUR_OK     = (0,  200,   80)  # Green  — no violations
+
 
 
 # ─────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ class Detection:
     track_id:    int       # Persistent ID assigned by ByteTrack (stays same across frames)
     class_id:    int       # COCO class number (e.g. 67 for phone)
     class_name:  str       # Human-readable name (e.g. "Cell Phone")
-    confidence:  float     # How sure YOLO is, 0.0–1.0
+    confidence:  float     # How sure the model is, 0.0–1.0
     severity:    str       # "HIGH" or "MEDIUM"
     bbox:        tuple     # (x1, y1, x2, y2) pixel coordinates of the box
     is_violation: bool     # Has this object been visible long enough to be a violation?
@@ -109,7 +109,7 @@ class ViolationEvent:
     duration:   float    # How long it has been visible (seconds)
     bbox:       tuple    # Where it was in the frame when violation fired
     timestamp:  float    # Unix timestamp (time.time())
-    frame_crop: Optional[np.ndarray] = None  # Cropped image of the object (for Gemma later)
+    frame_crop: Optional[np.ndarray] = None  # Cropped image of the object
 
 
 # ─────────────────────────────────────────────────────────
@@ -130,7 +130,6 @@ class ViolationTracker:
 
     def __init__(self):
         # Maps  track_id → time when we first saw this object
-        # defaultdict means: if key doesn't exist, automatically create it
         self._first_seen:  dict[int, float] = {}
 
         # Maps  track_id → True/False whether we already fired a violation for it.
@@ -219,7 +218,8 @@ class PhoneDetector:
     """
     Detects phones and prohibited objects in exam hall camera frames.
 
-    This is the class you import and use in your main system.
+    Uses RF-DETR (Real-time Detection Transformer) for detection and
+    supervision's ByteTrack for persistent object tracking.
 
     Usage:
         detector = PhoneDetector()
@@ -227,110 +227,91 @@ class PhoneDetector:
         annotated_frame     = detector.draw(frame, detections)
     """
 
-    def __init__(self, model_size: str = "m", config=None):
+    def __init__(self, config=None):
         """
         Args:
-            model_size: Which YOLO11 model to use. Trade-off between speed and accuracy:
-                "n" = nano   — fastest, least accurate (~2ms/frame on GPU)
-                "s" = small  — good balance
-                "m" = medium — recommended for exam hall (default)
-                "l" = large  — more accurate, slower
-                "x" = extra  — most accurate, slowest
-
-                For your Windows laptop: use "m"
-                For Jetson Orin later:   use "m" with TensorRT export
-
             config: Optional SharedConfig for live threshold updates.
                     If None, uses module-level constants.
 
-        On first run, Ultralytics automatically downloads the model weights
-        from the internet (~25–50MB). Subsequent runs use the cached file.
+        On first run, rfdetr automatically downloads the model weights
+        from the internet. Subsequent runs use the cached file.
         """
         self.config = config
-        model_filename = f"yolo11{model_size}.pt"
-        print(f"[PhoneDetector] Loading {model_filename} ...")
+        print("[PhoneDetector] Loading RF-DETR model ...")
 
-        # Load the YOLO11 model.
-        # YOLO() here is a class from the ultralytics library.
-        # Passing a filename string loads the pretrained COCO weights.
-        self.model = YOLO(model_filename)
+        # Load the RF-DETR model (pretrained on COCO).
+        # Load the smallest RF-DETR variant (Nano) for maximum FPS.
+        self.model = RFDETRNano()
 
-        print(f"[PhoneDetector] Model loaded. "
+        # Optimise the model for inference using JIT compilation.
+        # This significantly improves FPS by fusing operations.
+        print("[PhoneDetector] Optimizing model for inference ...")
+        self.model.optimize_for_inference()
+
+        print(f"[PhoneDetector] Model loaded and optimized. "
               f"Watching classes: { {v[0] for v in WATCHED_CLASSES.values()} }")
+
+        # Supervision ByteTrack for persistent object tracking across frames.
+        # This replaces the YOLO built-in tracker — same algorithm, used via
+        # the supervision library which pairs naturally with RF-DETR.
+        self.sv_tracker = sv.ByteTrack()
 
         self.tracker = ViolationTracker()
 
-        # Build a lookup: class_id → class_name from YOLO's internal names
-        # self.model.names looks like: {0: 'person', 1: 'bicycle', ..., 67: 'cell phone', ...}
-        self.class_names = self.model.names
+        # COCO class names lookup (original COCO category IDs → names)
+        self.class_names = COCO_CLASSES
 
     # ──────────────────────────────────────────
     #  Private Helpers
     # ──────────────────────────────────────────
 
     def _extract_detections(
-        self, yolo_result, frame: np.ndarray
+        self, sv_detections: sv.Detections, frame: np.ndarray
     ) -> list[Detection]:
         """
-        Converts YOLO's raw result object into our clean Detection dataclass list.
+        Converts supervision Detections into our clean Detection dataclass list.
 
-        YOLO returns a complex result object with many attributes. This method
+        RF-DETR returns a supervision.Detections object. After passing it
+        through ByteTrack, each detection gets a tracker_id. This method
         unpacks the parts we need into a simple, readable format.
 
         Args:
-            yolo_result: The first element of model.track()'s return list.
-            frame:       The original frame (used to crop the object image).
+            sv_detections: supervision.Detections after ByteTrack update.
+            frame:         The original frame (used to clamp coordinates).
 
         Returns:
             List of Detection objects, filtered to only WATCHED_CLASSES.
         """
         detections = []
 
-        # yolo_result.boxes contains all detected bounding boxes.
-        # If .id is None it means tracking failed this frame — skip it.
-        if yolo_result.boxes is None or yolo_result.boxes.id is None:
+        # If no detections or no tracker IDs, return empty
+        if sv_detections is None or len(sv_detections) == 0:
+            return detections
+        if sv_detections.tracker_id is None:
             return detections
 
-        # ── Unpack tensors from GPU/CPU memory into Python lists ──
-        #
-        # .xyxy  → bounding boxes as [x1, y1, x2, y2] in pixel coordinates
-        # .id    → ByteTrack persistent track IDs
-        # .cls   → class IDs (e.g. 67.0 for cell phone)
-        # .conf  → confidence scores (0.0 to 1.0)
-        #
-        # .cpu() moves the tensor from GPU memory to CPU memory
-        # .numpy() converts PyTorch tensor → NumPy array (regular numbers)
-        # .tolist() converts NumPy array → plain Python list
-
-        boxes      = yolo_result.boxes.xyxy.cpu().numpy()   # shape: (N, 4)
-        track_ids  = yolo_result.boxes.id.cpu().numpy().astype(int)  # shape: (N,)
-        class_ids  = yolo_result.boxes.cls.cpu().numpy().astype(int) # shape: (N,)
-        confidences= yolo_result.boxes.conf.cpu().numpy()            # shape: (N,)
-
-        h, w = frame.shape[:2]  # frame height and width
+        h, w = frame.shape[:2]
 
         # ── Loop through every detected object ──
-        for i in range(len(boxes)):
-            cid = class_ids[i]
+        for i in range(len(sv_detections)):
+            cid = int(sv_detections.class_id[i])
 
             # Skip anything not in our WATCHED_CLASSES
-            # (e.g. we don't care about chairs, bottles, etc.)
             if cid not in WATCHED_CLASSES:
                 continue
 
             class_name, severity = WATCHED_CLASSES[cid]
-            x1, y1, x2, y2 = boxes[i].astype(int)
+            x1, y1, x2, y2 = sv_detections.xyxy[i].astype(int)
 
             # Clamp coordinates to frame boundaries.
-            # Sometimes YOLO predicts boxes slightly outside the frame.
             x1 = max(0, x1);  y1 = max(0, y1)
             x2 = min(w, x2);  y2 = min(h, y2)
 
             detections.append(Detection(
-                track_id=int(track_ids[i]),
+                track_id=int(sv_detections.tracker_id[i]),
                 class_id=cid,
                 class_name=class_name,
-                confidence=float(confidences[i]),
+                confidence=float(sv_detections.confidence[i]),
                 severity=severity,
                 bbox=(x1, y1, x2, y2),
                 is_violation=False,  # ViolationTracker fills this in
@@ -371,7 +352,7 @@ class PhoneDetector:
         self, frame: np.ndarray
     ) -> tuple[list[Detection], list[ViolationEvent]]:
         """
-        Run YOLO11 + ByteTrack on one camera frame.
+        Run RF-DETR + ByteTrack on one camera frame.
 
         This is the main function you call every frame in your camera loop.
 
@@ -384,43 +365,32 @@ class PhoneDetector:
                         This is what gets sent to the invigilator dashboard.
         """
 
-        # ── Run YOLO11 with ByteTrack ──
-        #
-        # model.track() does TWO things in one call:
-        #   1. Runs YOLO detection (finds objects in this frame)
-        #   2. Runs ByteTrack (assigns/maintains track IDs across frames)
-        #
-        # Parameters explained:
-        #   source=frame   → the image to analyse (a NumPy array)
-        #   persist=True   → CRITICAL: tells ByteTrack to remember tracks
-        #                    from the previous frame. Without this, IDs
-        #                    reset every frame and tracking doesn't work.
-        #   tracker="bytetrack.yaml" → use ByteTrack algorithm (vs BoT-SORT)
-        #   classes=list(WATCHED_CLASSES.keys())
-        #                  → only detect these class IDs, ignore everything else.
-        #                    This makes YOLO faster — it skips chairs, cups, etc.
-        #   conf=CONFIDENCE_THRESHOLD → ignore detections below this score
-        #   iou=IOU_THRESHOLD → for removing duplicate overlapping boxes
-        #   verbose=False  → suppress YOLO's per-frame console output
-        #
-        # Returns a list — we only have one image so we take [0]
+        # ── Convert BGR (OpenCV) → RGB (RF-DETR expects RGB) ──
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        results = self.model.track(
-            source=frame,
-            persist=True,
-            tracker="bytetrack.yaml",
-            classes=list(WATCHED_CLASSES.keys()),
-            conf=(self.config.get("phone_confidence_threshold")
-                  if self.config else CONFIDENCE_THRESHOLD),
-            iou=IOU_THRESHOLD,
-            verbose=False,
-        )
+        # ── Run RF-DETR detection ──
+        #
+        # model.predict() does the detection in one call.
+        # It returns a supervision.Detections object with:
+        #   .xyxy        → bounding boxes [x1, y1, x2, y2]
+        #   .confidence  → confidence scores (0.0 to 1.0)
+        #   .class_id    → COCO class IDs
+        #
+        # threshold parameter filters out low-confidence detections.
 
-        # results[0] is the result for our single frame
-        yolo_result = results[0]
+        conf_threshold = (self.config.get("phone_confidence_threshold")
+                          if self.config else CONFIDENCE_THRESHOLD)
 
-        # ── Convert YOLO result → our Detection objects ──
-        detections = self._extract_detections(yolo_result, frame)
+        sv_detections = self.model.predict(rgb_frame, threshold=conf_threshold)
+
+        # ── Run ByteTrack to assign persistent tracker IDs ──
+        #
+        # ByteTrack gives each detected object a persistent ID that stays
+        # consistent across frames. Without this, IDs reset every frame.
+        sv_detections = self.sv_tracker.update_with_detections(sv_detections)
+
+        # ── Convert supervision detections → our Detection objects ──
+        detections = self._extract_detections(sv_detections, frame)
 
         # ── Update violation timers and get any new events ──
         violation_thresh = (self.config.get("phone_violation_seconds")

@@ -47,6 +47,10 @@ DEFAULTS = {
     "gaze_right_threshold": 0.65,
     "gaze_up_threshold": 0.35,
     "gaze_down_threshold": 0.65,
+
+    # Video recording
+    "video_pre_seconds": 5.0,
+    "video_post_seconds": 2.0,
 }
 
 

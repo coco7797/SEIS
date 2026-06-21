@@ -6,7 +6,7 @@ Features a live HUD (Heads-Up Display) and a local Flask-based admin dashboard f
 
 ## Features
 
-- **Phone & Object Detection**: Uses YOLO11 (via `ultralytics`) to identify cell phones, laptops, and books with configurable duration thresholds.
+- **Phone & Object Detection**: Uses RF-DETR (Real-time Detection Transformer) with supervision's ByteTrack to identify cell phones, laptops, and books with configurable duration thresholds.
 - **Head Pose & Attention Tracking**: Uses MediaPipe to track face landmarks and estimate yaw/pitch to ensure the student is looking at the screen.
 - **Eye Gaze Tracking**: Monitors the direction of the student's gaze to identify if they are constantly looking away.
 - **Auto Video Clip Recording**: Automatically records a 3-second video clip when a violation is detected.
@@ -20,7 +20,7 @@ Features a live HUD (Heads-Up Display) and a local Flask-based admin dashboard f
 - Python 3.9+ recommended.
 - A webcam (or an RTSP stream).
 - You will need the MediaPipe Face Landmarker model. Download the `face_landmarker.task` file from the [official MediaPipe models page](https://developers.google.com/mediapipe/solutions/vision/face_landmarker) and place it in the root directory.
-- The YOLO weights (`yolo11m.pt`) will automatically download upon the first run.
+- The RF-DETR model weights will automatically download upon the first run.
 
 ## Installation
 
@@ -56,9 +56,6 @@ python main.py --source path/to/video.mp4
 # Use an IP Camera RTSP stream
 python main.py --source rtsp://username:password@192.168.1.100/stream
 
-# Use a faster (nano) YOLO model instead of medium
-python main.py --model n
-
 # Disable head pose tracking (only phone detection)
 python main.py --no-headpose
 ```
@@ -84,7 +81,7 @@ From the dashboard, you can view all registered violations, watch the associated
 ## Structure
 
 - `main.py`: The entry point script that connects the detectors and runs the video loop.
-- `phone_detector.py`: YOLO-based detection logic.
+- `phone_detector.py`: RF-DETR-based detection logic with ByteTrack tracking.
 - `head_pose_detector.py`: MediaPipe-based facial tracking and gaze estimation.
 - `video_recorder.py`: Handles saving video clips of violations.
 - `admin_server.py`: Flask application for the dashboard.
