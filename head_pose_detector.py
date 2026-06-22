@@ -264,13 +264,15 @@ class HeadPoseViolationTracker:
     Tracks head pose inattention duration per face_id.
 
     A violation fires when a student's head is continuously turned away
-    for threshold_seconds.  The timer resets when the head returns to
-    FORWARD or the face disappears from frame.
+    for threshold_seconds.  The timer uses a grace period to prevent
+    jitter from instantly resetting the progress.
     """
 
     def __init__(self, threshold_seconds: float = ATTENTION_VIOLATION_SECONDS):
         self.threshold = threshold_seconds
+        self.grace_period = 0.5  # seconds to tolerate returning to FORWARD
         self._inattn_start: dict[int, float] = {}
+        self._last_violation: dict[int, float] = {}
         self._fired: dict[int, bool] = {}
         self._prev_ids: set[int] = set()
 
@@ -287,6 +289,7 @@ class HeadPoseViolationTracker:
 
         for gone_id in (self._prev_ids - current_ids):
             self._inattn_start.pop(gone_id, None)
+            self._last_violation.pop(gone_id, None)
             self._fired.pop(gone_id, None)
 
         new_violations: list[HeadPoseViolation] = []
@@ -295,11 +298,16 @@ class HeadPoseViolationTracker:
             fid = fa.face_id
 
             if fa.head_pose_status == "FORWARD":
-                self._inattn_start.pop(fid, None)
-                self._fired[fid] = False
+                last_viol = self._last_violation.get(fid, now)
+                if now - last_viol > self.grace_period:
+                    self._inattn_start.pop(fid, None)
+                    self._last_violation.pop(fid, None)
+                    self._fired.pop(fid, None)
                 fa.is_head_violation = False
                 continue
 
+            # It's a violation frame
+            self._last_violation[fid] = now
             if fid not in self._inattn_start:
                 self._inattn_start[fid] = now
                 self._fired[fid] = False
@@ -336,13 +344,15 @@ class GazeViolationTracker:
     Tracks gaze / eye tracking deviation duration per face_id.
 
     A violation fires when a student's gaze is continuously off-centre
-    for threshold_seconds.  The timer resets when gaze returns to CENTER
-    or the face disappears from frame.
+    for threshold_seconds.  The timer uses a grace period to prevent
+    jitter from instantly resetting the progress.
     """
 
     def __init__(self, threshold_seconds: float = GAZE_VIOLATION_SECONDS):
         self.threshold = threshold_seconds
+        self.grace_period = 0.5  # seconds to tolerate returning to CENTER
         self._inattn_start: dict[int, float] = {}
+        self._last_violation: dict[int, float] = {}
         self._fired: dict[int, bool] = {}
         self._prev_ids: set[int] = set()
 
@@ -359,6 +369,7 @@ class GazeViolationTracker:
 
         for gone_id in (self._prev_ids - current_ids):
             self._inattn_start.pop(gone_id, None)
+            self._last_violation.pop(gone_id, None)
             self._fired.pop(gone_id, None)
 
         new_violations: list[EyeTrackingViolation] = []
@@ -367,11 +378,16 @@ class GazeViolationTracker:
             fid = fa.face_id
 
             if fa.gaze_direction == "CENTER":
-                self._inattn_start.pop(fid, None)
-                self._fired[fid] = False
+                last_viol = self._last_violation.get(fid, now)
+                if now - last_viol > self.grace_period:
+                    self._inattn_start.pop(fid, None)
+                    self._last_violation.pop(fid, None)
+                    self._fired.pop(fid, None)
                 fa.is_gaze_violation = False
                 continue
 
+            # It's a violation frame
+            self._last_violation[fid] = now
             if fid not in self._inattn_start:
                 self._inattn_start[fid] = now
                 self._fired[fid] = False
@@ -996,8 +1012,9 @@ class HeadPoseDetector:
             bar_y = y2 + 22
 
             # Head pose progress bar
-            if fa.head_pose_status != "FORWARD":
-                duration = self.head_tracker.get_duration(fa.face_id)
+            head_duration = self.head_tracker.get_duration(fa.face_id)
+            if head_duration > 0:
+                duration = head_duration
                 bar_w = x2 - x1
                 fill_ratio = min(duration / self.head_tracker.threshold, 1.0)
                 fill_w = int(bar_w * fill_ratio)
@@ -1012,8 +1029,9 @@ class HeadPoseDetector:
                 bar_y += 8
 
             # Gaze progress bar
-            if fa.gaze_direction != "CENTER":
-                duration = self.gaze_tracker.get_duration(fa.face_id)
+            gaze_duration = self.gaze_tracker.get_duration(fa.face_id)
+            if gaze_duration > 0:
+                duration = gaze_duration
                 bar_w = x2 - x1
                 fill_ratio = min(duration / self.gaze_tracker.threshold, 1.0)
                 fill_w = int(bar_w * fill_ratio)
