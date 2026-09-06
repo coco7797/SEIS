@@ -1,6 +1,6 @@
 # requirements.txt
 # ─────────────────────────────────────────────
-# AI Exam Invigilator — Phone & Attention Detection
+# AI Exam Invigilator — Phone & Attention Detection + Qwen2.5-VL Review
 #
 # Install with:
 #   python -m pip install -r requirements.txt
