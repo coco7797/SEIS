@@ -30,3 +30,6 @@ mediapipe>=0.10.0
 # Flask — admin dashboard web server
 # Serves the invigilator control panel at http://localhost:5000
 flask>=3.0.0
+
+# Requests — HTTP client for Ollama API (Qwen2.5-VL review)
+requests>=2.31.0

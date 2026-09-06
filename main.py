@@ -6,10 +6,11 @@ Runs Phone Detection (RF-DETR) and Head Pose / Gaze Estimation (MediaPipe)
 on a live webcam, video file, or RTSP stream.
 
 Controls while running:
-  [Q] or [ESC]  → Quit
+  [Q] or [ESC]  → Stop video feed (dashboard stays open)
   [S]           → Save screenshot of current frame
   [C]           → Clear the on-screen violation log
   [P]           → Pause / Resume
+  [Ctrl+C]      → Fully quit (stops dashboard too)
 
 Usage:
   python main.py                                  # webcam (default)
@@ -192,7 +193,7 @@ def draw_hud(
                 cv2.FONT_HERSHEY_SIMPLEX, 0.38, (120, 120, 120), 1, cv2.LINE_AA)
     y_cursor += 18
 
-    cv2.putText(frame, "[Q] Quit  [S] Screenshot  [P] Pause  [C] Clear log",
+    cv2.putText(frame, "[Q] Stop Feed  [S] Screenshot  [P] Pause  [C] Clear log",
                 (10, y_cursor), cv2.FONT_HERSHEY_SIMPLEX, 0.36, (90, 90, 90), 1, cv2.LINE_AA)
     y_cursor += 18
 
@@ -299,7 +300,8 @@ def main():
     frame_buffer = FrameBuffer(max_seconds=5.0, fps_estimate=30.0, config=shared_config)
     video_writer = ViolationVideoWriter(frame_buffer, clips_dir="violation_clips", config=shared_config)
 
-    print("[INFO] Running. Press Q or ESC to quit.")
+    print("[INFO] Running. Press Q or ESC to stop video feed (dashboard stays open).")
+    print("[INFO] Press Ctrl+C in this terminal to fully quit.")
     print(f"[INFO] Watching for: Cell Phone, Laptop, Book")
     print(f"[INFO] Phone violation fires after {VIOLATION_DURATION_SECONDS}s continuous detection")
     if headpose_enabled:
@@ -504,7 +506,7 @@ def main():
             paused = True
             print("[INFO] Paused. Press P to resume.")
 
-    # ── Cleanup ──
+    # ── Cleanup — release camera and close video window ──
     cap.release()
     cv2.destroyAllWindows()
 
@@ -575,6 +577,59 @@ def main():
 
     print(f"{'='*55}\n")
 
+    # ── Keep dashboard alive after video feed stops ──
+    print(f"{'='*55}")
+    print(f"  VIDEO FEED STOPPED — DASHBOARD STILL RUNNING")
+    print(f"  Dashboard: http://localhost:8080")
+    print(f"  Press Ctrl+C to fully quit.")
+    print(f"{'='*55}\n")
+
+    # ── Post-session Qwen2.5-VL review (optional) ──
+    if shared_config.get("qwen_review_enabled") and len(all_events) > 0:
+        print("[INFO] Qwen2.5-VL AI Review is enabled. Starting violation review...")
+        print("[INFO] (This runs after detection has stopped — no FPS impact)\n")
+
+        try:
+            from qwen_reviewer import QwenReviewer
+
+            reviewer = QwenReviewer()
+            if reviewer.is_available():
+                # Wait briefly for any in-progress video encoding to finish
+                active_recorders = video_writer.get_active_recorders()
+                if active_recorders:
+                    print(f"[INFO] Waiting for {len(active_recorders)} video clip(s) to finish encoding...")
+                    import time as _time
+                    wait_start = _time.time()
+                    while video_writer.get_active_recorders() and (_time.time() - wait_start) < 30:
+                        _time.sleep(0.5)
+                    print("[INFO] Video encoding complete.\n")
+
+                review_summary = reviewer.review_all(violation_store)
+            else:
+                print("[WARNING] Qwen2.5-VL is not available. Skipping AI review.")
+                print("          Make sure Ollama is running: ollama serve")
+                print("          And the model is pulled: ollama pull qwen2.5vl:7b\n")
+        except ImportError as e:
+            print(f"[WARNING] Cannot import qwen_reviewer: {e}")
+            print("          Make sure 'requests' is installed: pip install requests\n")
+        except Exception as e:
+            print(f"[WARNING] Qwen review failed: {e}\n")
+    elif shared_config.get("qwen_review_enabled"):
+        print("[INFO] Qwen review enabled but no violations to review.\n")
+
+    # ── Block main thread so Flask dashboard keeps running ──
+    # daemon threads die when the main thread exits, so we must
+    # keep it alive.  threading.Event().wait() blocks forever
+    # (or until KeyboardInterrupt / Ctrl+C).
+    try:
+        _shutdown_event = threading.Event()
+        _shutdown_event.wait()          # blocks until Ctrl+C
+    except KeyboardInterrupt:
+        print("\n[INFO] Ctrl+C received. Shutting down completely.")
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n[INFO] Interrupted. Goodbye.")

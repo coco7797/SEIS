@@ -51,6 +51,9 @@ DEFAULTS = {
     # Video recording
     "video_pre_seconds": 5.0,
     "video_post_seconds": 2.0,
+
+    # Qwen2.5-VL AI review
+    "qwen_review_enabled": False,
 }
 
 
@@ -181,7 +184,9 @@ class ViolationStore:
                 gaze_h_ratio   REAL,
                 gaze_v_ratio   REAL,
                 bbox        TEXT,
-                media_path  TEXT
+                media_path  TEXT,
+                llm_verdict TEXT,
+                llm_reasoning TEXT
             )
         """)
         conn.commit()
@@ -200,6 +205,18 @@ class ViolationStore:
                 print("[ViolationStore] Migrated image_path → media_path")
         except Exception as e:
             print(f"[ViolationStore] Migration note: {e}")
+
+        # ── Migrate: add llm_verdict and llm_reasoning columns ──
+        try:
+            columns = [row[1] for row in
+                       conn.execute("PRAGMA table_info(violations)").fetchall()]
+            if "llm_verdict" not in columns:
+                conn.execute("ALTER TABLE violations ADD COLUMN llm_verdict TEXT")
+                conn.execute("ALTER TABLE violations ADD COLUMN llm_reasoning TEXT")
+                conn.commit()
+                print("[ViolationStore] Added llm_verdict and llm_reasoning columns")
+        except Exception as e:
+            print(f"[ViolationStore] LLM column migration note: {e}")
 
         conn.close()
 
@@ -262,20 +279,51 @@ class ViolationStore:
 
     # ── Query violations ──
 
-    def get_all(self, violation_type: str = None) -> list[dict]:
-        """Return all violations, newest first.  Optionally filter by type."""
+    def get_all(self, violation_type: str = None, verdict: str = None) -> list[dict]:
+        """Return all violations, newest first.  Optionally filter by type and/or verdict."""
         conn = self._get_conn()
+        clauses = []
+        params = []
+
         if violation_type and violation_type != "all":
-            rows = conn.execute(
-                "SELECT * FROM violations WHERE type = ? ORDER BY timestamp DESC",
-                (violation_type,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM violations ORDER BY timestamp DESC"
-            ).fetchall()
+            clauses.append("type = ?")
+            params.append(violation_type)
+
+        if verdict and verdict != "all":
+            if verdict.upper() == "PENDING":
+                clauses.append("(llm_verdict IS NULL OR llm_verdict = '')")
+            else:
+                clauses.append("llm_verdict = ?")
+                params.append(verdict.upper())
+
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = conn.execute(
+            f"SELECT * FROM violations{where} ORDER BY timestamp DESC",
+            params,
+        ).fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    def get_pending_reviews(self) -> list[dict]:
+        """Return violations that have media but no LLM verdict yet."""
+        conn = self._get_conn()
+        rows = conn.execute(
+            "SELECT * FROM violations WHERE media_path IS NOT NULL "
+            "AND (llm_verdict IS NULL OR llm_verdict = '') "
+            "ORDER BY timestamp ASC"
+        ).fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    def update_llm_verdict(self, violation_id: int, verdict: str, reasoning: str):
+        """Update a violation with the LLM's verification verdict and reasoning."""
+        conn = self._get_conn()
+        conn.execute(
+            "UPDATE violations SET llm_verdict = ?, llm_reasoning = ? WHERE id = ?",
+            (verdict, reasoning, violation_id),
+        )
+        conn.commit()
+        conn.close()
 
     def get_media_path(self, violation_id: int) -> str | None:
         """Return the media_path for a specific violation, or None."""

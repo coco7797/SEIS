@@ -16,6 +16,7 @@ the detection loop.
 
 import os
 import time
+import threading
 from flask import Flask, render_template, jsonify, request, send_file, abort
 
 from config import SharedConfig, ViolationStore
@@ -71,9 +72,10 @@ def index():
 
 @app.route("/api/violations")
 def api_get_violations():
-    """Return all violations as JSON.  ?type=phone|head_pose|eye_tracking"""
+    """Return all violations as JSON.  ?type=phone|head_pose|eye_tracking  ?verdict=CONFIRMED|FALSE_POSITIVE|INCONCLUSIVE|PENDING"""
     v_type = request.args.get("type")
-    violations = _store.get_all(v_type)
+    verdict = request.args.get("verdict")
+    violations = _store.get_all(v_type, verdict)
     return jsonify(violations)
 
 
@@ -148,6 +150,89 @@ def api_clear_violations():
     """Clear all violations from the database and disk."""
     _store.clear_all()
     return jsonify({"status": "ok"})
+
+
+# ─────────────────────────────────────────────────────────
+#  Routes — Qwen2.5-VL AI Review
+# ─────────────────────────────────────────────────────────
+
+# Track background review state
+_review_state = {
+    "running": False,
+    "progress": 0,
+    "total": 0,
+    "current_id": None,
+}
+
+
+@app.route("/api/violations/<int:vid>/review", methods=["POST"])
+def api_review_single(vid):
+    """Review a single violation with Qwen2.5-VL (runs in background thread)."""
+    try:
+        from qwen_reviewer import QwenReviewer
+    except ImportError:
+        return jsonify({"error": "qwen_reviewer module not available"}), 500
+
+    reviewer = QwenReviewer()
+    if not reviewer.is_available():
+        return jsonify({"error": "Ollama / Qwen2.5-VL not available"}), 503
+
+    def _do_review():
+        verdict, reasoning = reviewer.review_single(_store, vid)
+        print(f"[AdminServer] Single review #{vid}: {verdict}")
+
+    thread = threading.Thread(target=_do_review, daemon=True)
+    thread.start()
+
+    return jsonify({"status": "ok", "message": f"Reviewing violation #{vid}..."})
+
+
+@app.route("/api/review-all", methods=["POST"])
+def api_review_all():
+    """Batch-review all unreviewed violations (runs in background thread)."""
+    if _review_state["running"]:
+        return jsonify({"error": "A review is already in progress"}), 409
+
+    try:
+        from qwen_reviewer import QwenReviewer
+    except ImportError:
+        return jsonify({"error": "qwen_reviewer module not available"}), 500
+
+    reviewer = QwenReviewer()
+    if not reviewer.is_available():
+        return jsonify({"error": "Ollama / Qwen2.5-VL not available"}), 503
+
+    pending = _store.get_pending_reviews()
+    if not pending:
+        return jsonify({"status": "ok", "message": "No violations to review", "total": 0})
+
+    def _do_batch():
+        _review_state["running"] = True
+        _review_state["total"] = len(pending)
+        _review_state["progress"] = 0
+        try:
+            for i, v in enumerate(pending, 1):
+                _review_state["progress"] = i
+                _review_state["current_id"] = v["id"]
+                reviewer.review_single(_store, v["id"])
+        finally:
+            _review_state["running"] = False
+            _review_state["current_id"] = None
+
+    thread = threading.Thread(target=_do_batch, daemon=True)
+    thread.start()
+
+    return jsonify({
+        "status": "ok",
+        "message": f"Reviewing {len(pending)} violation(s)...",
+        "total": len(pending),
+    })
+
+
+@app.route("/api/review-status")
+def api_review_status():
+    """Return the current status of a batch review."""
+    return jsonify(_review_state)
 
 
 # ─────────────────────────────────────────────────────────

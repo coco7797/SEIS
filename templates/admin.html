@@ -460,6 +460,43 @@
             color: var(--gaze-color);
         }
 
+        .filter-pill.active[data-verdict="CONFIRMED"] {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .filter-pill.active[data-verdict="FALSE_POSITIVE"] {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #10b981;
+        }
+
+        .filter-pill.active[data-verdict="INCONCLUSIVE"] {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #f59e0b;
+        }
+
+        .filter-pill.active[data-verdict="PENDING"] {
+            background: rgba(161, 161, 170, 0.12);
+            border-color: rgba(161, 161, 170, 0.4);
+            color: #a1a1aa;
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-row-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
         /* ─── Count Badges ─── */
         .count-badge {
             display: inline-flex;
@@ -685,6 +722,129 @@
 
         .toast.success { border-color: rgba(46, 213, 115, 0.4); color: var(--success); }
         .toast.error { border-color: rgba(255, 71, 87, 0.4); color: var(--danger); }
+
+        /* ─── Verdict Badges ─── */
+        .verdict-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .verdict-badge.confirmed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .verdict-badge.false_positive {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .verdict-badge.inconclusive {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .verdict-badge.pending {
+            background: rgba(161, 161, 170, 0.10);
+            color: var(--text-muted);
+            border: 1px solid rgba(161, 161, 170, 0.2);
+        }
+
+        .verdict-badge.reviewing {
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            animation: pulse 1.5s infinite;
+        }
+
+        .violation-card.false-positive {
+            opacity: 0.6;
+        }
+
+        .violation-card.false-positive:hover {
+            opacity: 0.85;
+        }
+
+        /* ─── LLM Reasoning Row ─── */
+        .llm-reasoning {
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: rgba(139, 92, 246, 0.06);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .llm-reasoning .reasoning-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #8b5cf6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        /* ─── Review Button ─── */
+        .btn-review {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.3);
+            color: #8b5cf6;
+            font-size: 11px;
+            padding: 5px 10px;
+            margin-top: 8px;
+            width: 100%;
+        }
+
+        .btn-review:hover {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: #8b5cf6;
+        }
+
+        .btn-review:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-review-all {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.3);
+            color: #8b5cf6;
+        }
+
+        .btn-review-all:hover {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: #8b5cf6;
+        }
+
+        .qwen-description {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            padding: 4px 12px 8px;
+        }
+
+        .review-progress {
+            font-size: 11px;
+            color: #8b5cf6;
+            padding: 6px 12px;
+            display: none;
+        }
+
+        .review-progress.active {
+            display: block;
+        }
 
         /* ─── Responsive ─── */
         @media (max-width: 900px) {
@@ -941,6 +1101,37 @@
             </div>
         </div>
 
+        <!-- AI Review (Qwen2.5-VL) -->
+        <div class="sidebar-section" id="sectionQwen">
+            <div class="sidebar-section-header" onclick="toggleSection('sectionQwen')">
+                
+                <h3>AI Review (Qwen2.5-VL)</h3>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="sidebar-section-body">
+                <div class="setting-row">
+                    <label class="setting-label">Enable Post-Exam Review</label>
+                    <div class="setting-control">
+                        <label class="switch">
+                            <input type="checkbox" data-key="qwen_review_enabled" onchange="syncSetting(this)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="qwen-description">
+                    When enabled, Qwen2.5-VL will verify all violations after the exam session ends. This does not affect real-time detection FPS.
+                </div>
+                <div class="setting-row">
+                    <button class="btn btn-review-all" onclick="reviewAllViolations()" id="btnReviewAll">
+                         Review All Unreviewed
+                    </button>
+                </div>
+                <div class="review-progress" id="reviewProgress">
+                    ⏳ Reviewing... <span id="reviewProgressText">0/0</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Actions -->
         <div class="sidebar-actions">
             <button class="btn btn-accent" onclick="resetConfig()">
@@ -955,20 +1146,43 @@
             <div>
                 <h2>Violation Log</h2>
             </div>
-            <div class="main-header-actions">
-                <div class="filters">
-                    <button class="filter-pill active" data-type="all" onclick="setFilter('all', this)">
-                        All <span class="count-badge" id="countAll">0</span>
-                    </button>
-                    <button class="filter-pill" data-type="phone" onclick="setFilter('phone', this)">
-                         Phone <span class="count-badge" id="countPhone">0</span>
-                    </button>
-                    <button class="filter-pill" data-type="head_pose" onclick="setFilter('head_pose', this)">
-                         Head Pose <span class="count-badge" id="countHead">0</span>
-                    </button>
-                    <button class="filter-pill" data-type="eye_tracking" onclick="setFilter('eye_tracking', this)">
-                         Eye Tracking <span class="count-badge" id="countGaze">0</span>
-                    </button>
+            <div class="main-header-actions" style="flex-direction: column; align-items: flex-end; gap: 10px;">
+                <div class="filter-row">
+                    <span class="filter-row-label">Type</span>
+                    <div class="filters" id="typeFilters">
+                        <button class="filter-pill active" data-type="all" onclick="setFilter('all', this)">
+                            All <span class="count-badge" id="countAll">0</span>
+                        </button>
+                        <button class="filter-pill" data-type="phone" onclick="setFilter('phone', this)">
+                            Phone <span class="count-badge" id="countPhone">0</span>
+                        </button>
+                        <button class="filter-pill" data-type="head_pose" onclick="setFilter('head_pose', this)">
+                            Head Pose <span class="count-badge" id="countHead">0</span>
+                        </button>
+                        <button class="filter-pill" data-type="eye_tracking" onclick="setFilter('eye_tracking', this)">
+                            Eye Tracking <span class="count-badge" id="countGaze">0</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <span class="filter-row-label">Verdict</span>
+                    <div class="filters" id="verdictFilters">
+                        <button class="filter-pill active" data-verdict="all" onclick="setVerdictFilter('all', this)">
+                            All
+                        </button>
+                        <button class="filter-pill" data-verdict="CONFIRMED" onclick="setVerdictFilter('CONFIRMED', this)">
+                            Confirmed
+                        </button>
+                        <button class="filter-pill" data-verdict="FALSE_POSITIVE" onclick="setVerdictFilter('FALSE_POSITIVE', this)">
+                            False Positive
+                        </button>
+                        <button class="filter-pill" data-verdict="INCONCLUSIVE" onclick="setVerdictFilter('INCONCLUSIVE', this)">
+                            Inconclusive
+                        </button>
+                        <button class="filter-pill" data-verdict="PENDING" onclick="setVerdictFilter('PENDING', this)">
+                            Not Reviewed
+                        </button>
+                    </div>
                 </div>
                 <button class="btn btn-danger" onclick="clearViolations()">
                      Clear All
@@ -992,6 +1206,7 @@
 <script>
     // ─── State ───
     let currentFilter = 'all';
+    let currentVerdict = 'all';
     let configValues = {};
     let debounceTimer = null;
 
@@ -1071,15 +1286,24 @@
     // ─── Violations ───
     function setFilter(type, el) {
         currentFilter = type;
-        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('#typeFilters .filter-pill').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        loadViolations();
+    }
+
+    function setVerdictFilter(verdict, el) {
+        currentVerdict = verdict;
+        document.querySelectorAll('#verdictFilters .filter-pill').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
         loadViolations();
     }
 
     function loadViolations() {
-        const url = currentFilter === 'all'
-            ? '/api/violations'
-            : `/api/violations?type=${currentFilter}`;
+        const params = new URLSearchParams();
+        if (currentFilter !== 'all') params.set('type', currentFilter);
+        if (currentVerdict !== 'all') params.set('verdict', currentVerdict);
+        const qs = params.toString();
+        const url = '/api/violations' + (qs ? '?' + qs : '');
 
         fetch(url)
             .then(r => r.json())
@@ -1186,14 +1410,50 @@
                     </div>`;
             }
 
+            // Build verdict badge HTML
+            let verdictHtml = '';
+            if (v.llm_verdict) {
+                const verdictIcons = {
+                    'CONFIRMED': '⚠️',
+                    'FALSE_POSITIVE': '✅',
+                    'INCONCLUSIVE': '❓'
+                };
+                const verdictLabels = {
+                    'CONFIRMED': 'Confirmed',
+                    'FALSE_POSITIVE': 'False Positive',
+                    'INCONCLUSIVE': 'Inconclusive'
+                };
+                const verdictClass = v.llm_verdict.toLowerCase();
+                verdictHtml = `<span class="verdict-badge ${verdictClass}">${verdictIcons[v.llm_verdict] || '?'} ${verdictLabels[v.llm_verdict] || v.llm_verdict}</span>`;
+            }
+
+            // Build reasoning HTML
+            let reasoningHtml = '';
+            if (v.llm_reasoning) {
+                reasoningHtml = `
+                    <div class="llm-reasoning">
+                        <div class="reasoning-label"> AI Analysis</div>
+                        ${v.llm_reasoning}
+                    </div>`;
+            }
+
+            // Build re-review button
+            const reviewBtnHtml = v.media_path ? `
+                <button class="btn btn-review" onclick="reviewSingle(${v.id}, this)">
+                     ${v.llm_verdict ? 'Re-review' : 'Review'} with AI
+                </button>` : '';
+
+            const cardClass = v.llm_verdict === 'FALSE_POSITIVE' ? 'violation-card false-positive' : 'violation-card';
+
             return `
-                <div class="violation-card">
+                <div class="${cardClass}" id="violation-card-${v.id}">
                     ${mediaHtml}
                     <div class="violation-card-body">
                         <div class="violation-card-top">
                             <span class="violation-badge ${v.type}">${typeLabels[v.type] || v.type}</span>
                             <span class="violation-time">${time}<br>${date}</span>
                         </div>
+                        ${verdictHtml ? `<div style="margin-bottom: 8px">${verdictHtml}</div>` : ''}
                         <div class="violation-details">
                             <div class="violation-detail">
                                 <span class="detail-key">Violation Duration</span>
@@ -1201,6 +1461,8 @@
                             </div>
                             ${detailsHtml}
                         </div>
+                        ${reasoningHtml}
+                        ${reviewBtnHtml}
                     </div>
                 </div>`;
         }).join('');
@@ -1297,6 +1559,89 @@
             }
         }
     }, true);
+
+    // ─── Qwen AI Review ───
+    function reviewSingle(violationId, btn) {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '⏳ Reviewing...';
+        }
+        fetch(`/api/violations/${violationId}/review`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    if (btn) { btn.disabled = false; btn.textContent = ' Review with AI'; }
+                } else {
+                    showToast(`Reviewing violation #${violationId}...`, 'success');
+                    // Poll for completion
+                    setTimeout(() => {
+                        loadViolations();
+                        if (btn) { btn.disabled = false; btn.textContent = ' Re-review with AI'; }
+                    }, 15000);
+                }
+            })
+            .catch(() => {
+                showToast('Failed to start review', 'error');
+                if (btn) { btn.disabled = false; btn.textContent = ' Review with AI'; }
+            });
+    }
+
+    function reviewAllViolations() {
+        const btn = document.getElementById('btnReviewAll');
+        btn.disabled = true;
+        btn.textContent = '⏳ Starting...';
+
+        fetch('/api/review-all', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    btn.disabled = false;
+                    btn.textContent = ' Review All Unreviewed';
+                } else {
+                    showToast(data.message, 'success');
+                    if (data.total > 0) {
+                        startReviewPolling();
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = ' Review All Unreviewed';
+                    }
+                }
+            })
+            .catch(() => {
+                showToast('Failed to start batch review', 'error');
+                btn.disabled = false;
+                btn.textContent = ' Review All Unreviewed';
+            });
+    }
+
+    let reviewPollInterval = null;
+
+    function startReviewPolling() {
+        const progressEl = document.getElementById('reviewProgress');
+        const progressText = document.getElementById('reviewProgressText');
+        progressEl.classList.add('active');
+
+        reviewPollInterval = setInterval(() => {
+            fetch('/api/review-status')
+                .then(r => r.json())
+                .then(state => {
+                    progressText.textContent = `${state.progress}/${state.total}`;
+
+                    if (!state.running) {
+                        clearInterval(reviewPollInterval);
+                        reviewPollInterval = null;
+                        progressEl.classList.remove('active');
+                        const btn = document.getElementById('btnReviewAll');
+                        btn.disabled = false;
+                        btn.textContent = ' Review All Unreviewed';
+                        showToast('AI review complete!', 'success');
+                        loadViolations();
+                    }
+                });
+        }, 3000);
+    }
 
     // ─── Init & Polling ───
     loadConfig();
