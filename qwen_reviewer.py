@@ -456,8 +456,8 @@ class QwenReviewer:
             counts[verdict] = counts.get(verdict, 0) + 1
 
             # Status symbol
-            symbol = {"CONFIRMED": "⚠️", "FALSE_POSITIVE": "✅", "INCONCLUSIVE": "❓"}
-            print(f"{symbol.get(verdict, '?')} {verdict} ({elapsed:.1f}s)")
+            symbol = {"CONFIRMED": "[!]", "FALSE_POSITIVE": "[OK]", "INCONCLUSIVE": "[?]"}
+            print(f"{symbol.get(verdict, '[?]')} {verdict} ({elapsed:.1f}s)")
             print(f"          → {reasoning[:80]}")
 
         # Print summary

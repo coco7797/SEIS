@@ -382,7 +382,7 @@ def main():
             # Print to terminal with clear formatting
             print(
                 f"\n{'='*55}\n"
-                f"  ⚠  PHONE VIOLATION DETECTED\n"
+                f"  [!]  PHONE VIOLATION DETECTED\n"
                 f"{'='*55}\n"
                 f"  Object   : {ev.class_name}\n"
                 f"  Track ID : #{ev.track_id}\n"
@@ -407,7 +407,7 @@ def main():
 
             print(
                 f"\n{'='*55}\n"
-                f"  ⚠  HEAD POSE VIOLATION DETECTED\n"
+                f"  [!]  HEAD POSE VIOLATION DETECTED\n"
                 f"{'='*55}\n"
                 f"  Student  : {ev.label}\n"
                 f"  Status   : {ev.head_pose_status}\n"
@@ -433,7 +433,7 @@ def main():
 
             print(
                 f"\n{'='*55}\n"
-                f"  ⚠  EYE TRACKING VIOLATION DETECTED\n"
+                f"  [!]  EYE TRACKING VIOLATION DETECTED\n"
                 f"{'='*55}\n"
                 f"  Student  : {ev.label}\n"
                 f"  Gaze     : {ev.gaze_direction}\n"

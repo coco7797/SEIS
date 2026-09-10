@@ -379,3 +379,55 @@ class ViolationStore:
                     os.remove(path)
                 except OSError:
                     pass
+
+    def delete_one(self, violation_id: int) -> bool:
+        """Delete a single violation from the database and remove its media file if any."""
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT media_path FROM violations WHERE id = ?",
+            (violation_id,),
+        ).fetchone()
+        if not row:
+            conn.close()
+            return False
+
+        conn.execute("DELETE FROM violations WHERE id = ?", (violation_id,))
+        conn.commit()
+        conn.close()
+
+        media_path = row["media_path"]
+        if media_path and os.path.exists(media_path):
+            try:
+                os.remove(media_path)
+            except OSError:
+                pass
+        return True
+
+    def delete_many(self, violation_ids: list[int]) -> int:
+        """Delete multiple violations by ID and remove their media files."""
+        if not violation_ids:
+            return 0
+        conn = self._get_conn()
+        placeholders = ",".join("?" * len(violation_ids))
+        rows = conn.execute(
+            f"SELECT media_path FROM violations WHERE id IN ({placeholders})",
+            violation_ids,
+        ).fetchall()
+
+        cur = conn.execute(
+            f"DELETE FROM violations WHERE id IN ({placeholders})",
+            violation_ids,
+        )
+        deleted_count = cur.rowcount
+        conn.commit()
+        conn.close()
+
+        for row in rows:
+            media_path = row["media_path"]
+            if media_path and os.path.exists(media_path):
+                try:
+                    os.remove(media_path)
+                except OSError:
+                    pass
+        return deleted_count
+

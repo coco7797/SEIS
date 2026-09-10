@@ -846,6 +846,55 @@
             display: block;
         }
 
+        /* ─── Card Actions & Individual Clear ─── */
+        .violation-card-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .violation-card-actions .btn-review {
+            flex: 1;
+            margin-top: 0;
+            width: auto;
+        }
+
+        .violation-card-actions .btn-clear-single {
+            padding: 5px 12px;
+            font-size: 11px;
+            border-radius: var(--radius-sm);
+            white-space: nowrap;
+        }
+
+        .violation-card-actions .btn-clear-single.full-width {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-icon-danger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .btn-icon-danger:hover {
+            color: var(--phone-color);
+            background: var(--phone-dim);
+            border-color: rgba(239, 68, 68, 0.3);
+            transform: scale(1.08);
+        }
+
         /* ─── Responsive ─── */
         @media (max-width: 900px) {
             .sidebar { display: none; }
@@ -1127,7 +1176,7 @@
                     </button>
                 </div>
                 <div class="review-progress" id="reviewProgress">
-                    ⏳ Reviewing... <span id="reviewProgressText">0/0</span>
+                    Reviewing... <span id="reviewProgressText">0/0</span>
                 </div>
             </div>
         </div>
@@ -1184,8 +1233,8 @@
                         </button>
                     </div>
                 </div>
-                <button class="btn btn-danger" onclick="clearViolations()">
-                     Clear All
+                <button class="btn btn-danger" onclick="clearViolations()" title="Clear all violations">
+                    Clear All
                 </button>
             </div>
         </div>
@@ -1209,6 +1258,7 @@
     let currentVerdict = 'all';
     let configValues = {};
     let debounceTimer = null;
+
 
     // ─── Settings Sync ───
     function syncSetting(el) {
@@ -1422,21 +1472,16 @@
                     </div>`;
             }
 
-            // Build verdict badge HTML
+            // Build verdict badge HTML (clean text without emojis)
             let verdictHtml = '';
             if (v.llm_verdict) {
-                const verdictIcons = {
-                    'CONFIRMED': '⚠️',
-                    'FALSE_POSITIVE': '✅',
-                    'INCONCLUSIVE': '❓'
-                };
                 const verdictLabels = {
                     'CONFIRMED': 'Confirmed',
                     'FALSE_POSITIVE': 'False Positive',
                     'INCONCLUSIVE': 'Inconclusive'
                 };
                 const verdictClass = v.llm_verdict.toLowerCase();
-                verdictHtml = `<span class="verdict-badge ${verdictClass}">${verdictIcons[v.llm_verdict] || '?'} ${verdictLabels[v.llm_verdict] || v.llm_verdict}</span>`;
+                verdictHtml = `<span class="verdict-badge ${verdictClass}">${verdictLabels[v.llm_verdict] || v.llm_verdict}</span>`;
             }
 
             // Build reasoning HTML
@@ -1463,7 +1508,15 @@
                     <div class="violation-card-body">
                         <div class="violation-card-top">
                             <span class="violation-badge ${v.type}">${typeLabels[v.type] || v.type}</span>
-                            <span class="violation-time">${time}<br>${date}</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="violation-time">${time}<br>${date}</span>
+                                <button class="btn-icon-danger" onclick="clearSingleViolation(${v.id}, event)" title="Clear violation #${v.id}">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                         ${verdictHtml ? `<div style="margin-bottom: 8px">${verdictHtml}</div>` : ''}
                         <div class="violation-details">
@@ -1474,10 +1527,48 @@
                             ${detailsHtml}
                         </div>
                         ${reasoningHtml}
-                        ${reviewBtnHtml}
+                        <div class="violation-card-actions">
+                            ${reviewBtnHtml}
+                            <button class="btn btn-danger btn-clear-single ${v.media_path ? '' : 'full-width'}" onclick="clearSingleViolation(${v.id}, event)" title="Clear violation #${v.id}">
+                                Clear
+                            </button>
+                        </div>
                     </div>
                 </div>`;
         }).join('');
+    }
+
+    // ─── Violation Clearing ───
+    function clearSingleViolation(id, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        if (!confirm(`Clear violation #${id}? This cannot be undone.`)) return;
+
+        fetch(`/api/violations/${id}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    showToast(`Violation #${id} cleared`, 'success');
+                    const card = document.getElementById(`violation-card-${id}`);
+                    if (card) {
+                        card.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.9) translateY(10px)';
+                        setTimeout(() => {
+                            loadViolations();
+                            loadStats();
+                        }, 280);
+                    } else {
+                        loadViolations();
+                        loadStats();
+                    }
+                } else {
+                    showToast(data.error || 'Failed to clear violation', 'error');
+                }
+            })
+            .catch(() => showToast('Failed to clear violation', 'error'));
     }
 
     function clearViolations() {
@@ -1493,6 +1584,8 @@
             })
             .catch(() => showToast('Failed to clear violations', 'error'));
     }
+
+
 
     // ─── Stats ───
     function loadStats() {
@@ -1576,7 +1669,7 @@
     function reviewSingle(violationId, btn) {
         if (btn) {
             btn.disabled = true;
-            btn.textContent = '⏳ Reviewing...';
+            btn.textContent = 'Reviewing...';
         }
         fetch(`/api/violations/${violationId}/review`, { method: 'POST' })
             .then(r => r.json())
@@ -1602,7 +1695,7 @@
     function reviewAllViolations() {
         const btn = document.getElementById('btnReviewAll');
         btn.disabled = true;
-        btn.textContent = '⏳ Starting...';
+        btn.textContent = 'Starting...';
 
         fetch('/api/review-all', { method: 'POST' })
             .then(r => r.json())

@@ -152,6 +152,28 @@ def api_clear_violations():
     return jsonify({"status": "ok"})
 
 
+@app.route("/api/violations/<int:vid>", methods=["DELETE", "POST"])
+@app.route("/api/violations/<int:vid>/delete", methods=["POST"])
+def api_delete_single_violation(vid):
+    """Delete an individual violation by ID."""
+    success = _store.delete_one(vid)
+    if success:
+        return jsonify({"status": "ok", "deleted_id": vid})
+    return jsonify({"error": "Violation not found"}), 404
+
+
+@app.route("/api/violations/delete-batch", methods=["POST"])
+def api_delete_violations_batch():
+    """Delete multiple selected violations by ID list."""
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+    if not isinstance(ids, list):
+        return jsonify({"error": "ids must be a list"}), 400
+    valid_ids = [int(x) for x in ids if str(x).isdigit()]
+    deleted_count = _store.delete_many(valid_ids)
+    return jsonify({"status": "ok", "deleted_count": deleted_count})
+
+
 # ─────────────────────────────────────────────────────────
 #  Routes — Qwen2.5-VL AI Review
 # ─────────────────────────────────────────────────────────
@@ -247,6 +269,11 @@ def run_server(host: str = "0.0.0.0", port: int = 8080):
         host: Bind address. "0.0.0.0" = accessible from other devices.
         port: Port number. Default 5000.
     """
+    global _config, _store
+    if _config is None or _store is None:
+        from config import SharedConfig, ViolationStore
+        init_app(SharedConfig(), ViolationStore())
+
     # Suppress Flask's startup banner and request logs
     import logging
     log = logging.getLogger("werkzeug")
@@ -254,3 +281,9 @@ def run_server(host: str = "0.0.0.0", port: int = 8080):
 
     print(f"[AdminServer] Dashboard running at http://localhost:{port}")
     app.run(host=host, port=port, debug=False, use_reloader=False)
+
+
+
+if __name__ == "__main__":
+    run_server()
+
