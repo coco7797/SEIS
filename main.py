@@ -20,6 +20,9 @@ Usage:
   python main.py --no-headpose                    # disable head pose detection
 """
 
+import os
+os.environ["OPENCV_VIDEOIO_DEBUG"] = "0"  # Suppress libopenh264 version warnings
+
 import cv2
 import time
 import argparse
@@ -623,7 +626,8 @@ def main():
     # (or until KeyboardInterrupt / Ctrl+C).
     try:
         _shutdown_event = threading.Event()
-        _shutdown_event.wait()          # blocks until Ctrl+C
+        while not _shutdown_event.is_set():
+            _shutdown_event.wait(timeout=1.0)  # Short timeout so Ctrl+C works on Windows
     except KeyboardInterrupt:
         print("\n[INFO] Ctrl+C received. Shutting down completely.")
 

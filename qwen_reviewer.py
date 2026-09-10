@@ -53,29 +53,46 @@ VIOLATION_PROMPTS = {
     "phone": (
         "You are an AI exam invigilator assistant. Analyze the following image(s) "
         "from an exam monitoring camera.\n\n"
-        "TASK: Determine whether this shows a student holding, using, or having "
-        "a mobile phone, laptop, tablet, or other prohibited electronic device "
-        "during an examination.\n\n"
-        "Consider:\n"
-        "- Is there actually a phone/device visible, or is it a false detection "
-        "(e.g., a pencil case, calculator, water bottle, hand gesture)?\n"
-        "- Is the student actively using or holding the device?\n"
-        "- Could this be an innocent object misidentified by the detection model?\n\n"
+        "TASK: Determine whether the student is holding, using, or has "
+        "a mobile phone, smartphone, or prohibited electronic device.\n\n"
+        "IMPORTANT:\n"
+        "- Do NOT evaluate detection duration, time, or confidence scores. The detection "
+        "system has already validated timing thresholds. Duration is NOT your concern.\n"
+        "- Your ONLY role is visual object verification: determine whether the object "
+        "is genuinely a phone/electronic device or an innocent everyday item.\n\n"
+        "DECISION RULES:\n"
+        "- CONFIRMED: Mark as CONFIRMED if you visually identify a mobile phone, "
+        "smartphone, or electronic screen in the student's hand, on the desk, or on their lap.\n"
+        "- FALSE_POSITIVE: Mark as FALSE_POSITIVE if the object is clearly an innocent, "
+        "non-phone item such as a wallet, pencil case, calculator, ruler, notebook, "
+        "tissue, water bottle, or simply an empty hand gesture/posture.\n"
+        "- INCONCLUSIVE: If the object is too blurry, too small, partially obscured, or "
+        "you are unsure whether it is a phone or something else (like a wallet or case), "
+        "give an INCONCLUSIVE verdict so a human invigilator can inspect it.\n\n"
         "Respond with EXACTLY this format:\n"
         "VERDICT: [CONFIRMED or FALSE_POSITIVE or INCONCLUSIVE]\n"
-        "REASONING: [One or two sentences explaining your decision]"
+        "REASONING: [One or two sentences explaining your visual decision]"
     ),
     "head_pose": (
         "You are an AI exam invigilator assistant. Analyze the following image(s) "
         "from an exam monitoring camera.\n\n"
         "TASK: Determine whether this shows a student turning their head "
-        "significantly away from their exam paper in a manner that suggests "
-        "they may be looking at another student's paper or cheating.\n\n"
-        "Consider:\n"
-        "- Is the student clearly looking away from their own desk/paper?\n"
-        "- Could they simply be stretching, thinking, or looking at the clock?\n"
-        "- Is the head turn sustained and directed toward another student?\n"
-        "- Natural brief glances are normal and should not be flagged.\n\n"
+        "away from their own exam paper in a suspicious manner.\n\n"
+        "IMPORTANT: The detection system has already confirmed this head turn "
+        "was SUSTAINED for over 5 continuous seconds. This is NOT a brief glance "
+        "or momentary stretch — those have already been filtered out.\n\n"
+        "DECISION RULES:\n"
+        "- MUST CONFIRM: If the student is looking or turning their head towards "
+        "the desk, surface, or paper next to him (to his left or right), this MUST "
+        "be marked as CONFIRMED. Looking sideways at an adjacent desk, another student's "
+        "area, or notes/paper placed beside him is strong evidence of cheating.\n"
+        "- FALSE_POSITIVE: Only mark as FALSE_POSITIVE if the student is clearly "
+        "looking straight at their own exam paper directly in front of them, looking "
+        "at the front board/clock, or visibly speaking to an invigilator.\n"
+        "- INCONCLUSIVE: If you are UNSURE, uncertain, or the camera angle/lighting "
+        "makes it difficult to clearly determine what the student is looking at, you "
+        "MUST give an INCONCLUSIVE verdict. Do NOT default to FALSE_POSITIVE when in doubt. "
+        "Let the human invigilator review ambiguous cases.\n\n"
         "Respond with EXACTLY this format:\n"
         "VERDICT: [CONFIRMED or FALSE_POSITIVE or INCONCLUSIVE]\n"
         "REASONING: [One or two sentences explaining your decision]"
@@ -83,15 +100,21 @@ VIOLATION_PROMPTS = {
     "eye_tracking": (
         "You are an AI exam invigilator assistant. Analyze the following image(s) "
         "from an exam monitoring camera.\n\n"
-        "TASK: Determine whether this shows a student whose eyes are clearly "
-        "looking away from their own exam paper toward another student's work "
-        "or prohibited materials.\n\n"
-        "Consider:\n"
-        "- Are the student's eyes clearly directed away from their paper?\n"
-        "- Could they be looking at the question paper, thinking, or blinking?\n"
-        "- Is the gaze direction consistent with attempting to view someone "
-        "else's answers?\n"
-        "- Brief natural eye movements should not be flagged.\n\n"
+        "TASK: Determine whether this shows a student whose gaze/eyes are "
+        "directed away from their own exam paper toward another desk, paper, or materials.\n\n"
+        "IMPORTANT: The detection system has already confirmed this gaze deviation "
+        "was SUSTAINED for over 5 continuous seconds. This is NOT a natural eye blink "
+        "or brief wandering — the student held this gaze direction continuously.\n\n"
+        "DECISION RULES:\n"
+        "- MUST CONFIRM: If the student's eyes or gaze are directed towards the desk, "
+        "surface, or paper next to him (to his side), this MUST be marked as CONFIRMED. "
+        "Reading or looking sideways toward an adjacent desk, another student's work, "
+        "or notes/paper beside him is strong evidence of cheating, even if the student next to him isnt in frame.\n"
+        "- FALSE_POSITIVE: Only mark as FALSE_POSITIVE if the student is clearly "
+        "focused straight ahead on their own exam paper or looking up at the front of the room.\n"
+        "- INCONCLUSIVE: If you are UNSURE, uncertain, or the student's eye direction "
+        "is ambiguous or hard to discern, you MUST give an INCONCLUSIVE verdict. "
+        "Do NOT default to FALSE_POSITIVE when in doubt. Let the human invigilator review ambiguous cases.\n\n"
         "Respond with EXACTLY this format:\n"
         "VERDICT: [CONFIRMED or FALSE_POSITIVE or INCONCLUSIVE]\n"
         "REASONING: [One or two sentences explaining your decision]"
@@ -310,13 +333,10 @@ class QwenReviewer:
             VIOLATION_PROMPTS["phone"],  # fallback
         )
 
-        # Add metadata context if available
+        # Add metadata context if available (visual / descriptive cues only;
+        # do not pass numerical duration or confidence to keep the LLM focused on visual verification)
         if metadata:
             context_parts = []
-            if metadata.get("duration"):
-                context_parts.append(f"Detection duration: {metadata['duration']:.1f}s")
-            if metadata.get("confidence"):
-                context_parts.append(f"Detection confidence: {metadata['confidence']:.0%}")
             if metadata.get("class_name"):
                 context_parts.append(f"Detected object: {metadata['class_name']}")
             if metadata.get("head_pose_status"):
