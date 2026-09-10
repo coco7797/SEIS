@@ -1357,8 +1357,16 @@
             if (v.type === 'phone') {
                 detailsHtml = `
                     <div class="violation-detail">
+                        <span class="detail-key">Violation ID</span>
+                        <span class="detail-value">#${v.id}</span>
+                    </div>
+                    <div class="violation-detail">
                         <span class="detail-key">Object</span>
                         <span class="detail-value">${v.class_name || '—'}</span>
+                    </div>
+                    <div class="violation-detail">
+                        <span class="detail-key">Track ID</span>
+                        <span class="detail-value">#${v.track_id || '—'}</span>
                     </div>
                     <div class="violation-detail">
                         <span class="detail-key">Confidence</span>
@@ -1367,13 +1375,13 @@
                     <div class="violation-detail">
                         <span class="detail-key">Severity</span>
                         <span class="detail-value">${v.severity || '—'}</span>
-                    </div>
-                    <div class="violation-detail">
-                        <span class="detail-key">Track ID</span>
-                        <span class="detail-value">#${v.track_id || '—'}</span>
                     </div>`;
             } else if (v.type === 'head_pose') {
                 detailsHtml = `
+                    <div class="violation-detail">
+                        <span class="detail-key">Violation ID</span>
+                        <span class="detail-value">#${v.id}</span>
+                    </div>
                     <div class="violation-detail">
                         <span class="detail-key">Student</span>
                         <span class="detail-value">${v.label || '—'}</span>
@@ -1392,6 +1400,10 @@
                     </div>`;
             } else {
                 detailsHtml = `
+                    <div class="violation-detail">
+                        <span class="detail-key">Violation ID</span>
+                        <span class="detail-value">#${v.id}</span>
+                    </div>
                     <div class="violation-detail">
                         <span class="detail-key">Student</span>
                         <span class="detail-value">${v.label || '—'}</span>
