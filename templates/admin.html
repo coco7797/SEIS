@@ -860,17 +860,7 @@
             width: auto;
         }
 
-        .violation-card-actions .btn-clear-single {
-            padding: 5px 12px;
-            font-size: 11px;
-            border-radius: var(--radius-sm);
-            white-space: nowrap;
-        }
 
-        .violation-card-actions .btn-clear-single.full-width {
-            width: 100%;
-            justify-content: center;
-        }
 
         .btn-icon-danger {
             display: inline-flex;
@@ -1527,12 +1517,9 @@
                             ${detailsHtml}
                         </div>
                         ${reasoningHtml}
-                        <div class="violation-card-actions">
+                        ${reviewBtnHtml ? `<div class="violation-card-actions">
                             ${reviewBtnHtml}
-                            <button class="btn btn-danger btn-clear-single ${v.media_path ? '' : 'full-width'}" onclick="clearSingleViolation(${v.id}, event)" title="Clear violation #${v.id}">
-                                Clear
-                            </button>
-                        </div>
+                        </div>` : ''}
                     </div>
                 </div>`;
         }).join('');
