@@ -3,7 +3,7 @@ admin_server.py
 ===============
 Flask web server for the AI Exam Invigilator admin dashboard.
 
-Provides a browser-based UI at http://localhost:5000 where
+Provides a browser-based UI at http://localhost:8080 where
 invigilators can:
   - View all violations with video clips
   - Adjust detection thresholds in real-time
@@ -267,7 +267,7 @@ def run_server(host: str = "0.0.0.0", port: int = 8080):
 
     Args:
         host: Bind address. "0.0.0.0" = accessible from other devices.
-        port: Port number. Default 5000.
+        port: Port number. Default 8080.
     """
     global _config, _store
     if _config is None or _store is None:

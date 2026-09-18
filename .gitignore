@@ -22,17 +22,15 @@ violation_crops/
 
 # Model Weights (Large files)
 *.pt
-yolo11n.pt
-yolo11s.pt
-yolo11m.pt
-yolo11l.pt
-yolo11x.pt
 *.task
-face_landmarker.task
+
+# Reports / PDFs
+*.pdf
 
 # IDEs
 .vscode/
 .idea/
+.agents/
 
 # OS generated files
 .DS_Store
